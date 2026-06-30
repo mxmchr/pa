@@ -1,0 +1,22 @@
+[global]
+keyboard = "fr"
+country = "fr"
+fqdn = "pve1.pa.lan"
+mailto = "admin@pa.fr"
+timezone = "Europe/Paris"
+root-password-hashed = "$6$ZW8MJGwsHGhNaOrj$GyarMz60UfTy0ikoURc4vWR29xUR.PjAIHx5X7RgnXkJOZUkuQvfTGf8CEUpW/C1C/yI6Yi2J3bBLMwH8QAbp1"
+
+[network]
+source = "from-answer"
+cidr = "172.16.255.11/24"
+dns = "1.1.1.1"
+gateway = "172.16.255.1"
+filter.ID_NET_NAME_MAC = "enx000c2954e784"
+
+[disk-setup]
+filesystem = "zfs"
+zfs.raid = "raid1"
+zfs.ashift = 12
+zfs.compress = "lz4"
+zfs.checksum = "on"
+disk-list = ["sda", "sdb"]
