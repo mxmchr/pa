@@ -1,0 +1,76 @@
+---
+- name: Check current cluster status
+  ansible.builtin.command: pvecm status
+  register: pvecm_status
+  changed_when: false
+  failed_when: false
+
+- name: Create Proxmox cluster on primary node
+  community.proxmox.proxmox_cluster:
+    api_host: "{{ ansible_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    api_port: "{{ pve_api_port }}"
+    validate_certs: "{{ pve_validate_certs }}"
+    state: present
+    cluster_name: "{{ pve_cluster_name }}"
+    link0: "{{ pve_node_ip }}"
+  when:
+    - inventory_hostname == pve_primary_node
+    - "'Name:' not in pvecm_status.stdout"
+
+- name: Wait for primary cluster API to stabilize
+  ansible.builtin.pause:
+    seconds: 15
+  when: inventory_hostname == pve_primary_node
+
+- name: Get cluster join information from primary node
+  ansible.builtin.command: pvecm addnode {{ pve_node_name }} --force 0
+  delegate_to: "{{ pve_primary_node }}"
+  register: pve_join_preview
+  changed_when: false
+  failed_when: false
+  when:
+    - inventory_hostname != pve_primary_node
+
+- name: Get primary node certificate fingerprint
+  ansible.builtin.shell: |
+    pvecm status | awk '/Config Version/ {print $0}' >/dev/null
+    openssl x509 -in /etc/pve/local/pve-ssl.pem -noout -fingerprint -sha256 \
+      | cut -d= -f2
+  delegate_to: "{{ pve_primary_node }}"
+  register: pve_primary_fingerprint
+  changed_when: false
+  when:
+    - inventory_hostname != pve_primary_node
+
+- name: Join node to Proxmox cluster
+  community.proxmox.proxmox_cluster:
+    api_host: "{{ ansible_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    api_port: "{{ pve_api_port }}"
+    validate_certs: "{{ pve_validate_certs }}"
+    state: present
+    master_ip: "{{ pve_primary_ip }}"
+    master_api_password: "{{ pve_api_password }}"
+    fingerprint: "{{ pve_primary_fingerprint.stdout }}"
+    link0: "{{ pve_node_ip }}"
+  when:
+    - inventory_hostname != pve_primary_node
+    - "'Name:' not in pvecm_status.stdout"
+
+- name: Wait after node join
+  ansible.builtin.pause:
+    seconds: 20
+  when:
+    - inventory_hostname != pve_primary_node
+
+- name: Display final cluster status
+  ansible.builtin.command: pvecm status
+  register: final_cluster_status
+  changed_when: false
+
+- name: Print cluster status
+  ansible.builtin.debug:
+    var: final_cluster_status.stdout_lines

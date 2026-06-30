@@ -1,0 +1,7 @@
+---
+- name: Configure Proxmox repositories
+  hosts: proxmox
+  gather_facts: true
+
+  roles:
+    - pve_repositories

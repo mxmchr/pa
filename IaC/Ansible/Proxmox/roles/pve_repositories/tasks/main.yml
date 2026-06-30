@@ -1,0 +1,66 @@
+---
+- name: Disable Proxmox enterprise repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/pve-enterprise.list
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise
+
+- name: Disable Ceph enterprise repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/ceph.list
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Enterprise Ceph repository disabled
+
+- name: Configure Proxmox VE no-subscription repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/pve-no-subscription.list
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
+
+- name: Configure Debian Bookworm main repositories
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      deb http://deb.debian.org/debian bookworm main contrib non-free-firmware
+      deb http://deb.debian.org/debian bookworm-updates main contrib non-free-firmware
+      deb http://security.debian.org/debian-security bookworm-security main contrib non-free-firmware
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Full upgrade packages
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: true
+    autoclean: true
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - vim
+      - htop
+      - jq
+      - chrony
+      - python3-pip
+    state: present
+
+- name: Ensure chrony is enabled and started
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
