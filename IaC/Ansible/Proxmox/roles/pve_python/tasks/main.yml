@@ -1,0 +1,25 @@
+---
+- name: Install Python system dependencies
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-requests
+    state: present
+    update_cache: false
+
+- name: Install proxmoxer >= 2.3 with pip
+  ansible.builtin.pip:
+    name: "proxmoxer>=2.3"
+    executable: pip3
+    extra_args: --break-system-packages
+
+- name: Verify proxmoxer version
+  ansible.builtin.command:
+    cmd: python3 -c "import proxmoxer; print(proxmoxer.__version__)"
+  register: proxmoxer_version
+  changed_when: false
+
+- name: Display proxmoxer version
+  ansible.builtin.debug:
+    msg: "proxmoxer version installed: {{ proxmoxer_version.stdout }}"
