@@ -19,7 +19,7 @@ module "capabilities_dev" {
   depends_on = [ module.pool-dev, module.sdn_dev ]
 }
 
-module "lxc_portainer" {
+module "lxc_pa" {
     source = "./modules/lxc"
     for_each = var.lxcs
     
@@ -63,10 +63,10 @@ module "lxc_portainer" {
       ]
 }
 
-module "vm-dev" {
-  source = "./modules/vm"
-  depends_on = [
-    module.pool-dev,
-    module.sdn_dev
-  ]
-}
+# module "vm-dev" {
+#   source = "./modules/vm"
+#   depends_on = [
+#     module.pool-dev,
+#     module.sdn_dev
+#   ]
+# }
