@@ -1,41 +1,70 @@
 ---
-- name: Disable Proxmox enterprise repository
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list.d/pve-enterprise.list
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      # deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise
+- name: Remove old Proxmox/Debian repository list files to avoid duplicates
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/pve-enterprise.list
+    - /etc/apt/sources.list.d/pve-enterprise.sources
+    - /etc/apt/sources.list.d/pve-no-subscription.list
+    - /etc/apt/sources.list.d/ceph.list
+    - /etc/apt/sources.list.d/ceph.sources
+    - /etc/apt/sources.list.d/debian.sources
 
-- name: Disable Ceph enterprise repository
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list.d/ceph.list
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      # Enterprise Ceph repository disabled
-
-- name: Configure Proxmox VE no-subscription repository
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list.d/pve-no-subscription.list
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
-
-- name: Configure Debian Bookworm main repositories
+- name: Disable legacy /etc/apt/sources.list to avoid Bookworm/Trixie mix
   ansible.builtin.copy:
     dest: /etc/apt/sources.list
     owner: root
     group: root
     mode: "0644"
     content: |
-      deb http://deb.debian.org/debian bookworm main contrib non-free-firmware
-      deb http://deb.debian.org/debian bookworm-updates main contrib non-free-firmware
-      deb http://security.debian.org/debian-security bookworm-security main contrib non-free-firmware
+      # Managed by Ansible.
+      # Debian repositories are configured in /etc/apt/sources.list.d/debian.sources.
+
+- name: Configure Debian Trixie repositories
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/debian.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: http://deb.debian.org/debian/
+      Suites: trixie trixie-updates
+      Components: main contrib non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://security.debian.org/debian-security/
+      Suites: trixie-security
+      Components: main contrib non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+- name: Configure Proxmox VE 9 no-subscription repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/proxmox.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: http://download.proxmox.com/debian/pve
+      Suites: trixie
+      Components: pve-no-subscription
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+
+- name: Configure Ceph Squid no-subscription repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/ceph.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: http://download.proxmox.com/debian/ceph-squid
+      Suites: trixie
+      Components: no-subscription
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
 
 - name: Update apt cache
   ansible.builtin.apt:
