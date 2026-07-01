@@ -99,7 +99,7 @@ apt install proxmox-auto-install-assistant
 
 Puis générer une ISO pour chaque serveur.
 
-## PVE1
+## Exemple
 
 ```bash
 proxmox-auto-install-assistant prepare-iso \
@@ -109,27 +109,7 @@ proxmox-auto-install-assistant prepare-iso \
     --output proxmox-ve-pve1.iso
 ```
 
-## PVE2
-
-```bash
-proxmox-auto-install-assistant prepare-iso \
-    proxmox-ve_9.2-1.iso \
-    --fetch-from iso \
-    --answer-file ANSWER_PVE2.TOML \
-    --output proxmox-ve-pve2.iso
-```
-
-## PVE3
-
-```bash
-proxmox-auto-install-assistant prepare-iso \
-    proxmox-ve_9.2-1.iso \
-    --fetch-from iso \
-    --answer-file ANSWER_PVE3.TOML \
-    --output proxmox-ve-pve3.iso
-```
-
-Cette commande est celle recommandée par la documentation officielle Proxmox pour intégrer directement le fichier `answer.toml` dans l'ISO (`--fetch-from iso`). :contentReference[oaicite:0]{index=0}
+Cette commande est celle recommandée par la documentation officielle Proxmox pour intégrer directement le fichier `answer.toml` dans l'ISO.
 
 À l'issue de cette étape, vous disposez de trois ISO prêtes à être utilisées :
 
