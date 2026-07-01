@@ -80,6 +80,13 @@
 - name: Flush handlers before package operations
   ansible.builtin.meta: flush_handlers
 
+- name: Full upgrade Proxmox packages
+  ansible.builtin.apt:
+    upgrade: full
+    autoremove: true
+    autoclean: true
+    update_cache: true
+
 - name: Install baseline packages
   ansible.builtin.apt:
     name:
