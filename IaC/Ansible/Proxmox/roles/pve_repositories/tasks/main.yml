@@ -7,17 +7,30 @@
     group: root
     mode: "0755"
 
-- name: Disable Proxmox enterprise repository if present
+- name: Disable Proxmox enterprise Deb822 repository if present
   ansible.builtin.lineinfile:
     path: /etc/apt/sources.list.d/pve-enterprise.sources
     regexp: '^Enabled:'
     line: 'Enabled: false'
     create: false
   failed_when: false
+  changed_when: false
 
 - name: Disable legacy Proxmox enterprise list repository if present
   ansible.builtin.replace:
     path: /etc/apt/sources.list.d/pve-enterprise.list
+    regexp: '^deb '
+    replace: '# deb '
+  failed_when: false
+
+- name: Remove old Bookworm no-subscription repository if present
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/pve-no-subscription.list
+    state: absent
+
+- name: Disable legacy /etc/apt/sources.list entries to avoid duplicates
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list
     regexp: '^deb '
     replace: '# deb '
   failed_when: false
@@ -69,13 +82,6 @@
       Components: no-subscription
       Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
   notify: apt_update
-
-- name: Disable legacy /etc/apt/sources.list entries to avoid duplicates
-  ansible.builtin.replace:
-    path: /etc/apt/sources.list
-    regexp: '^deb '
-    replace: '# deb '
-  failed_when: false
 
 - name: Flush handlers before package operations
   ansible.builtin.meta: flush_handlers
