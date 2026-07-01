@@ -1,1 +1,128 @@
 *.iso
+
+###############################################################################
+# Ansible
+###############################################################################
+
+# Vault password file
+.vault_pass
+.vault-password
+vault.pass
+
+# Vault variables (si tu ne souhaites pas les versionner)
+**/group_vars/*/vault.yml
+**/host_vars/*/vault.yml
+
+# Variables sensibles éventuelles
+secrets.yml
+secret.yml
+*.secret.yml
+
+# Fichiers de retry
+*.retry
+
+# Logs
+ansible.log
+
+###############################################################################
+# Terraform / OpenTofu
+###############################################################################
+
+# State
+*.tfstate
+*.tfstate.*
+terraform.tfstate*
+crash.log
+
+# Terraform directories
+.terraform/
+**/.terraform/
+
+# Terraform lock (à conserver si tu veux figer les providers)
+# Si tu souhaites verrouiller les versions, COMMIT ce fichier.
+# Sinon décommente la ligne suivante.
+# .terraform.lock.hcl
+
+# Variables sensibles
+*.tfvars
+*.tfvars.json
+
+# Backend
+backend.tfvars
+backend.hcl
+backend.auto.tfvars
+backend.auto.tfvars.json
+
+# Override
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+###############################################################################
+# Providers locaux
+###############################################################################
+
+terraform-provider-*
+tofu-provider-*
+
+###############################################################################
+# SSH
+###############################################################################
+
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.pem
+*.key
+*.pfx
+*.p12
+
+###############################################################################
+# Certificats
+###############################################################################
+
+*.crt
+*.cer
+*.csr
+
+###############################################################################
+# Python
+###############################################################################
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+###############################################################################
+# IDE
+###############################################################################
+
+.vscode/
+.idea/
+
+###############################################################################
+# OS
+###############################################################################
+
+.DS_Store
+Thumbs.db
+
+###############################################################################
+# Archives
+###############################################################################
+
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+###############################################################################
+# Temp
+###############################################################################
+
+*.tmp
+*.bak
+*.swp
