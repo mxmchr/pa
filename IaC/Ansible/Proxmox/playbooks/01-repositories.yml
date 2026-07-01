@@ -2,7 +2,6 @@
 - name: Configure Proxmox repositories and baseline packages
   hosts: proxmox
   gather_facts: true
-  serial: 1
 
   roles:
     - pve_repositories
