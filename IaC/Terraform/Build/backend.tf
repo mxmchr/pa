@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
-    bucket = "terraform-state"
-    key    = "proxmox.tfstate"
+    bucket = "pa-terraformbuild"
+    key    = "build.tfstate"
     region                      = "auto"
     skip_credentials_validation = true
     skip_metadata_api_check     = true
@@ -11,6 +11,6 @@ terraform {
     use_path_style              = true
     # access_key = var.s3_access_key
     # secret_key = var.s3_secret_key
-    # endpoints = { s3 = var.s3_endpoint }
+    # endpoints = { s3 build= var.s3_endpoint }
   }
 }
