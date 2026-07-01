@@ -25,7 +25,7 @@ secret.yml
 ansible.log
 
 ###############################################################################
-# Terraform / OpenTofu
+# Terraform
 ###############################################################################
 
 # State
@@ -38,9 +38,6 @@ crash.log
 .terraform/
 **/.terraform/
 
-# Terraform lock (à conserver si tu veux figer les providers)
-# Si tu souhaites verrouiller les versions, COMMIT ce fichier.
-# Sinon décommente la ligne suivante.
 # .terraform.lock.hcl
 
 # Variables sensibles

@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
-    bucket = "pa-terraformbuild"
-    key    = "build.tfstate"
+    bucket = "pa-terraform"
+    key    = "Build/build.tfstate"
     region                      = "auto"
     skip_credentials_validation = true
     skip_metadata_api_check     = true

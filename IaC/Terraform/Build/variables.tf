@@ -169,32 +169,3 @@ variable "sdn_dev" {
   })
 }
 ############################################
-
-############################################
-### Variables pour Portainer ###
-############################################
-
-variable "portainer_endpoint" {
-  description = "Endpoint Portainer"
-  type        = string
-}
-
-variable "portainer_api_key" {
-  description = "Clé API Portainer"
-  type        = string
-  sensitive   = true
-}
-
-variable "portainer_backup_password" {
-  description = "Mot de passe pour le backup Portainer"
-  type        = string
-  sensitive   = true
-}
-
-variable "output_path" {
-  description = "Chemin de sortie pour le backup Portainer"
-  type        = string
-  default     = "backup.tar.gz"
-}
-
-############################################
