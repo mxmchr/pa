@@ -1,10 +1,20 @@
 # Proxmox Infrastructure as Code
 
-Ce dépôt permet d'automatiser le déploiement d'une infrastructure Proxmox à l'aide d'Ansible.
+Ce dépôt permet d'automatiser le déploiement d'une infrastructure **Proxmox VE** à l'aide d'Ansible.
 
-## Structure du projet
+L'objectif est de :
 
-```
+- Déployer automatiquement trois nœuds Proxmox via les fichiers `answer.toml`
+- Préparer des ISO d'installation personnalisées
+- Configurer les dépôts Proxmox
+- Installer les dépendances Python
+- Créer automatiquement un cluster Proxmox
+
+---
+
+# Structure du projet
+
+```text
 .
 ├── IaC/
 │   └── Ansible/
@@ -29,12 +39,13 @@ Ce dépôt permet d'automatiser le déploiement d'une infrastructure Proxmox à 
 
 # Prérequis
 
-- 3 serveurs Proxmox VE installés
-- Accès SSH sur les trois nœuds
-- Python installé sur la machine exécutant Ansible
-- Ansible installé
+- 3 serveurs physiques
+- Un poste d'administration avec Ansible
+- Accès SSH aux trois nœuds
+- Python 3
+- Ansible
 
-Exemple :
+Installation d'Ansible :
 
 ```bash
 python3 -m venv venv
@@ -46,25 +57,19 @@ ansible-galaxy collection install community.general community.proxmox
 
 ---
 
-# Installation de Proxmox
+# Téléchargement de Proxmox VE
 
-L'installation de Proxmox peut être réalisée automatiquement grâce à l'ISO officielle et au fichier de réponses (`answer.toml`).
-
-## 1. Télécharger la dernière ISO
-
-Télécharger la dernière version disponible depuis le site officiel :
-
-https://www.proxmox.com/en/downloads
-
-ou directement :
+Télécharger l'image officielle :
 
 ```bash
-wget https://enterprise.proxmox.com/iso/proxmox-ve_latest.iso
+wget https://enterprise.proxmox.com/iso/proxmox-ve_9.2-1.iso
 ```
 
-## 2. Préparer les trois fichiers de réponses
+---
 
-Modifier les fichiers :
+# Configuration des fichiers Answer
+
+Modifier les trois fichiers présents à la racine du dépôt :
 
 - `ANSWER_PVE1.TOML`
 - `ANSWER_PVE2.TOML`
@@ -72,99 +77,156 @@ Modifier les fichiers :
 
 Adapter notamment :
 
-- hostname
-- adresse IP
-- passerelle
-- DNS
-- mot de passe root
-- disque d'installation
-- paramètres réseau
+- le hostname
+- l'adresse IP
+- la passerelle
+- le DNS
+- le mot de passe root
+- le disque d'installation
+- les paramètres réseau
 
-Chaque serveur doit posséder son propre fichier TOML.
-
-## 3. Installer les trois nœuds
-
-Démarrer chaque machine sur l'ISO Proxmox en utilisant son fichier `answer.toml`.
-
-À la fin de l'installation, les trois serveurs sont prêts et accessibles en SSH.
+Chaque serveur doit posséder son propre fichier `ANSWER_PVEX.TOML`.
 
 ---
 
-# Déploiement avec Ansible
+# Préparation des ISO
 
-Se placer dans le dossier :
+Installer l'outil Proxmox permettant de générer une ISO d'installation automatique :
+
+```bash
+apt install proxmox-auto-install-assistant
+```
+
+Puis générer une ISO pour chaque serveur.
+
+## PVE1
+
+```bash
+proxmox-auto-install-assistant prepare-iso \
+    proxmox-ve_9.2-1.iso \
+    --fetch-from iso \
+    --answer-file ANSWER_PVE1.TOML \
+    --output proxmox-ve-pve1.iso
+```
+
+## PVE2
+
+```bash
+proxmox-auto-install-assistant prepare-iso \
+    proxmox-ve_9.2-1.iso \
+    --fetch-from iso \
+    --answer-file ANSWER_PVE2.TOML \
+    --output proxmox-ve-pve2.iso
+```
+
+## PVE3
+
+```bash
+proxmox-auto-install-assistant prepare-iso \
+    proxmox-ve_9.2-1.iso \
+    --fetch-from iso \
+    --answer-file ANSWER_PVE3.TOML \
+    --output proxmox-ve-pve3.iso
+```
+
+Cette commande est celle recommandée par la documentation officielle Proxmox pour intégrer directement le fichier `answer.toml` dans l'ISO (`--fetch-from iso`). :contentReference[oaicite:0]{index=0}
+
+À l'issue de cette étape, vous disposez de trois ISO prêtes à être utilisées :
+
+- `proxmox-ve-pve1.iso`
+- `proxmox-ve-pve2.iso`
+- `proxmox-ve-pve3.iso`
+
+Il ne reste plus qu'à démarrer chaque serveur sur son ISO correspondante.
+
+---
+
+# Déploiement Ansible
+
+Une fois les trois serveurs installés et accessibles en SSH :
 
 ```bash
 cd IaC/Ansible/Proxmox
 ```
 
-## Étape 1 : Configuration des dépôts
+---
 
-Configure les dépôts Proxmox ainsi que les dépendances nécessaires.
+# Étape 1 : Configuration des dépôts
+
+Configure les dépôts Proxmox et installe les dépendances nécessaires.
 
 ```bash
 ansible-playbook playbooks/01-repositories.yml
 ```
 
-Cette étape installe également les dépendances Python utilisées par les modules Ansible Proxmox.
+Cette étape :
+
+- configure les dépôts Proxmox
+- installe les dépendances Python
+- installe la bibliothèque Python utilisée par les modules Ansible Proxmox
 
 ---
 
-## Étape 2 : Création du cluster
+# Étape 2 : Création du cluster
 
-Créer automatiquement le cluster Proxmox :
+Créer automatiquement le cluster :
 
 ```bash
 ansible-playbook playbooks/02-cluster.yml
 ```
 
-Le playbook :
+Ce playbook :
 
 - crée le cluster
 - ajoute les nœuds
-- vérifie l'état du cluster
+- vérifie le bon fonctionnement du cluster
 
 ---
 
-# Personnalisation
+# Vérifications
 
 Avant d'exécuter les playbooks, vérifier :
 
 - les adresses IP dans l'inventaire Ansible
 - les accès SSH
-- les mots de passe ou les clés SSH
+- les clés SSH ou mots de passe
 - les fichiers `ANSWER_PVE*.TOML`
 
 ---
 
 # Ordre d'exécution
 
-1. Télécharger la dernière ISO Proxmox.
-2. Modifier les trois fichiers `ANSWER_PVE*.TOML`.
-3. Installer les trois serveurs Proxmox.
-4. Vérifier l'accès SSH.
-5. Exécuter :
+1. Télécharger l'ISO Proxmox.
+2. Modifier les fichiers :
+   - `ANSWER_PVE1.TOML`
+   - `ANSWER_PVE2.TOML`
+   - `ANSWER_PVE3.TOML`
+3. Générer les trois ISO automatiques.
+4. Installer les trois serveurs Proxmox.
+5. Vérifier l'accès SSH.
+6. Exécuter :
 
 ```bash
 ansible-playbook playbooks/01-repositories.yml
 ```
 
-6. Puis :
+7. Puis :
 
 ```bash
 ansible-playbook playbooks/02-cluster.yml
 ```
 
-Le cluster Proxmox est alors entièrement configuré.
+Le cluster Proxmox est alors entièrement déployé et opérationnel.
 
 ---
 
 # Évolutions prévues
 
-- Déploiement automatique via PXE
-- Configuration réseau automatisée
-- Configuration du stockage
-- Configuration Ceph
+- Déploiement PXE
+- Configuration automatique du stockage
+- Déploiement Ceph
+- Configuration réseau avancée
 - Gestion des certificats
-- Création automatique des utilisateurs
+- Création des utilisateurs
 - Configuration des sauvegardes
+```
