@@ -2,3 +2,4 @@
 - name: apt_update
   ansible.builtin.apt:
     update_cache: true
+    force_apt_get: true

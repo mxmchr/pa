@@ -1,20 +1,12 @@
 ---
-- name: Ensure APT keyrings directory exists
-  ansible.builtin.file:
-    path: /usr/share/keyrings
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
 - name: Disable Proxmox enterprise Deb822 repository if present
   ansible.builtin.lineinfile:
     path: /etc/apt/sources.list.d/pve-enterprise.sources
     regexp: '^Enabled:'
-    line: 'Enabled: false'
+    line: 'Enabled: no'
     create: false
   failed_when: false
-  changed_when: false
+  notify: apt_update
 
 - name: Disable legacy Proxmox enterprise list repository if present
   ansible.builtin.replace:
@@ -22,42 +14,11 @@
     regexp: '^deb '
     replace: '# deb '
   failed_when: false
-
-- name: Remove old Bookworm no-subscription repository if present
-  ansible.builtin.file:
-    path: /etc/apt/sources.list.d/pve-no-subscription.list
-    state: absent
-
-- name: Disable legacy /etc/apt/sources.list entries to avoid duplicates
-  ansible.builtin.replace:
-    path: /etc/apt/sources.list
-    regexp: '^deb '
-    replace: '# deb '
-  failed_when: false
-
-- name: Configure Debian Trixie repositories
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list.d/debian.sources
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      Types: deb
-      URIs: http://deb.debian.org/debian/
-      Suites: trixie trixie-updates
-      Components: main contrib non-free-firmware
-      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-
-      Types: deb
-      URIs: http://security.debian.org/debian-security/
-      Suites: trixie-security
-      Components: main contrib non-free-firmware
-      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
   notify: apt_update
 
-- name: Configure Proxmox VE 9 no-subscription repository
+- name: Configure Proxmox VE no-subscription repository
   ansible.builtin.copy:
-    dest: /etc/apt/sources.list.d/pve-no-subscription.sources
+    dest: /etc/apt/sources.list.d/proxmox.sources
     owner: root
     group: root
     mode: "0644"
@@ -88,25 +49,8 @@
 
 - name: Full upgrade Proxmox packages
   ansible.builtin.apt:
-    upgrade: full
+    upgrade: dist
     autoremove: true
     autoclean: true
     update_cache: true
-
-- name: Install baseline packages
-  ansible.builtin.apt:
-    name:
-      - curl
-      - wget
-      - vim
-      - htop
-      - jq
-      - chrony
-    state: present
-    update_cache: false
-
-- name: Ensure chrony is enabled and started
-  ansible.builtin.service:
-    name: chrony
-    state: started
-    enabled: true
+    force_apt_get: true

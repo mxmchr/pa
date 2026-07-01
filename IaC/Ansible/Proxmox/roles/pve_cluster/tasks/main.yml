@@ -15,34 +15,31 @@
     state: present
     cluster_name: "{{ pve_cluster_name }}"
     link0: "{{ pve_node_ip }}"
+  delegate_to: localhost
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  no_log: true
+  register: pve_cluster_created
   when:
     - inventory_hostname == pve_primary_node
     - "'Name:' not in pvecm_status.stdout"
 
-- name: Wait for primary cluster API to stabilize
+- name: Wait after cluster creation
   ansible.builtin.pause:
-    seconds: 15
-  when: inventory_hostname == pve_primary_node
-
-- name: Get cluster join information from primary node
-  ansible.builtin.command: pvecm addnode {{ pve_node_name }} --force 0
-  delegate_to: "{{ pve_primary_node }}"
-  register: pve_join_preview
-  changed_when: false
-  failed_when: false
+    seconds: 20
   when:
-    - inventory_hostname != pve_primary_node
+    - inventory_hostname == pve_primary_node
+    - pve_cluster_created is changed
 
 - name: Get primary node certificate fingerprint
   ansible.builtin.shell: |
-    pvecm status | awk '/Config Version/ {print $0}' >/dev/null
-    openssl x509 -in /etc/pve/local/pve-ssl.pem -noout -fingerprint -sha256 \
-      | cut -d= -f2
+    openssl x509 -in /etc/pve/local/pve-ssl.pem -noout -fingerprint -sha256 | cut -d= -f2 | tr -d '\n'
   delegate_to: "{{ pve_primary_node }}"
   register: pve_primary_fingerprint
   changed_when: false
   when:
     - inventory_hostname != pve_primary_node
+    - "'Name:' not in pvecm_status.stdout"
 
 - name: Join node to Proxmox cluster
   community.proxmox.proxmox_cluster:
@@ -52,10 +49,17 @@
     api_port: "{{ pve_api_port }}"
     validate_certs: "{{ pve_validate_certs }}"
     state: present
+    cluster_name: "{{ pve_cluster_name }}"
     master_ip: "{{ pve_primary_ip }}"
     master_api_password: "{{ pve_api_password }}"
-    fingerprint: "{{ pve_primary_fingerprint.stdout }}"
+    fingerprint: "{{ pve_primary_fingerprint.stdout | trim }}"
     link0: "{{ pve_node_ip }}"
+  delegate_to: localhost
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  no_log: true
+  throttle: 1
+  register: pve_node_joined
   when:
     - inventory_hostname != pve_primary_node
     - "'Name:' not in pvecm_status.stdout"
@@ -65,11 +69,13 @@
     seconds: 20
   when:
     - inventory_hostname != pve_primary_node
+    - pve_node_joined is changed
 
 - name: Display final cluster status
   ansible.builtin.command: pvecm status
   register: final_cluster_status
   changed_when: false
+  failed_when: false
 
 - name: Print cluster status
   ansible.builtin.debug:
