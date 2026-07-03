@@ -100,7 +100,7 @@ variable "lxcs" {
   description = "LXCs Definition"
   type = map(object({
     description = optional(string, "Managed by Terraform")
-    node_name   = optional(string, "pve-lotus-01")
+    node_name   = optional(string, "pve1")
     vm_id       = optional(number, null)
     lxc_pool_id = optional(string, null)
     tags        = optional(list(string), [])
@@ -122,7 +122,7 @@ variable "lxcs" {
     ipv4_address           = string
     ipv4_gateway           = optional(string, null)
 
-    datastore_id     = optional(string, "local-lvm")
+    datastore_id     = optional(string, "local-zfs")
     disk_size        = number
     template_file_id = string
 
