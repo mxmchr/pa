@@ -1,0 +1,4 @@
+# Managed by Ansible (role pve_network) - ne pas modifier à la main
+auto enx{{ pve_macs.corosync | replace(':', '') | lower }}
+iface enx{{ pve_macs.corosync | replace(':', '') | lower }} inet static
+    address {{ pa_corosync_prefix }}.{{ pve_node_ip.split('.')[-1] }}/24

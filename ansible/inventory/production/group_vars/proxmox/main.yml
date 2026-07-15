@@ -10,6 +10,11 @@ pve_api_port: 8006
 pve_validate_certs: false
 
 pve_api_password: "{{ vault_pve_root_password }}"
+
+# Corosync dédié
+pa_corosync_network: "172.16.254.0/24"
+pa_corosync_prefix: "172.16.254"
+
 # Underlay inter-Proxmox (cf. docs/architecture/plan-adressage.md)
 pa_ceph_public_network: "172.16.253.0/24"
 pa_ceph_public_prefix: "172.16.253"

@@ -1,4 +1,15 @@
 ---
+# Interfaces réseau dédiées : ceph_public, ceph_cluster, corosync.
+# sdn_trunk reste géré côté Terraform SDN.
+
+- name: Déployer la configuration de l'interface Corosync
+  ansible.builtin.template:
+    src: corosync-interfaces.cfg.j2
+    dest: /etc/network/interfaces.d/corosync.cfg
+    owner: root
+    group: root
+    mode: "0644"
+  notify: ifreload
 
 - name: Déployer la configuration des interfaces Ceph
   ansible.builtin.template:
@@ -12,6 +23,11 @@
 - name: Flush handlers pour activer les interfaces avant la suite
   ansible.builtin.meta: flush_handlers
 
+- name: Vérifier que l'interface corosync est up
+  ansible.builtin.command: "ip -4 addr show enx{{ pve_macs.corosync | replace(':', '') | lower }}"
+  register: corosync_iface
+  changed_when: false
+
 - name: Vérifier que l'interface ceph_public est up
   ansible.builtin.command: "ip -4 addr show enx{{ pve_macs.ceph_public | replace(':', '') | lower }}"
   register: ceph_public_iface
@@ -21,6 +37,11 @@
   ansible.builtin.command: "ip -4 addr show enx{{ pve_macs.ceph_cluster | replace(':', '') | lower }}"
   register: ceph_cluster_iface
   changed_when: false
+
+- name: Assert - IP bien présente sur corosync
+  ansible.builtin.assert:
+    that: "pa_corosync_prefix in corosync_iface.stdout"
+    fail_msg: "L'interface corosync n'a pas l'IP attendue sur {{ inventory_hostname }}"
 
 - name: Assert - IP bien présente sur ceph_public
   ansible.builtin.assert:

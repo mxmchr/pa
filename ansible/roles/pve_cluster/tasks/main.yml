@@ -1,4 +1,8 @@
 ---
+- name: Calculer l'IP corosync de ce nœud
+  ansible.builtin.set_fact:
+    pve_corosync_ip: "{{ pa_corosync_prefix }}.{{ pve_node_ip.split('.')[-1] }}"
+
 - name: Check current cluster status
   ansible.builtin.command: pvecm status
   register: pvecm_status
@@ -14,7 +18,8 @@
     validate_certs: "{{ pve_validate_certs }}"
     state: present
     cluster_name: "{{ pve_cluster_name }}"
-    link0: "{{ pve_node_ip }}"
+    link0: "{{ pve_corosync_ip }}"
+    link1: "{{ pve_node_ip }}"
   delegate_to: localhost
   vars:
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
@@ -53,7 +58,8 @@
     master_ip: "{{ pve_primary_ip }}"
     master_api_password: "{{ pve_api_password }}"
     fingerprint: "{{ pve_primary_fingerprint.stdout | trim }}"
-    link0: "{{ pve_node_ip }}"
+    link0: "{{ pve_corosync_ip }}"
+    link1: "{{ pve_node_ip }}"
   delegate_to: localhost
   vars:
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
