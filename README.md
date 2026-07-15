@@ -84,9 +84,6 @@ ansible-vault create inventory/production/group_vars/all/vault.yml
 Toutes les commandes `ansible-playbook` ci-dessous nécessitent `--vault-password-file ../.vault_pass`
 (fichier local, gitignoré) ou `--ask-vault-pass`.
 
-⚠️ Un mot de passe avait été committé (hashé) sur ce repo avant sa réorganisation — voir
-`docs/decisions/security-notes.md` si ce n'est pas déjà fait.
-
 ---
 
 # Ordre d'exécution
