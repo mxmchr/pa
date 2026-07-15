@@ -1,0 +1,38 @@
+---
+ansible_user: root
+
+pve_cluster_name: pa-cluster
+pve_primary_node: pve1.pa.lan
+pve_primary_ip: 172.16.255.11
+
+pve_api_user: root@pam
+pve_api_port: 8006
+pve_validate_certs: false
+
+pve_api_password: "{{ vault_pve_root_password }}"
+# Underlay inter-Proxmox (cf. docs/architecture/plan-adressage.md)
+pa_ceph_public_network: "172.16.253.0/24"
+pa_ceph_public_prefix: "172.16.253"
+pa_ceph_cluster_network: "172.16.252.0/24"
+pa_ceph_cluster_prefix: "172.16.252"
+
+# Ceph
+pa_ceph_osd_disks:
+  - /dev/sdc
+  - /dev/sdd
+pa_ceph_pool_name: "pa-pool"
+pa_ceph_pool_size: 3
+pa_ceph_pool_min_size: 2
+
+# Chemins partagés (control node)
+pa_answer_files_dir: "{{ playbook_dir }}/../../files/answer-files"
+pa_iso_dir: "{{ playbook_dir }}/../../files/iso"
+
+# Proxmox VE ISO — version épinglée volontairement (reproductibilité IaC),
+# à mettre à jour manuellement quand une nouvelle version sort
+# (https://www.proxmox.com/en/downloads/proxmox-virtual-environment/iso)
+pa_proxmox_ve_version: "9.2-1"
+pa_proxmox_ve_iso_sha256: "4e88fe416df9b527624a175f24c9aa07c714d3332afb1ee3dbf3879573ef2c6c"
+pa_proxmox_ve_iso_url: "https://enterprise.proxmox.com/iso/proxmox-ve_{{ pa_proxmox_ve_version }}.iso"
+pa_proxmox_repo_suite: "trixie"
+pa_docker_context_dir: "{{ playbook_dir }}/../../files/docker/pve-auto-install"

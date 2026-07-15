@@ -1,0 +1,28 @@
+---
+- name: Calculer le hash sha512-crypt du mot de passe root (depuis le vault)
+  ansible.builtin.set_fact:
+    pve_root_password_hashed: "{{ vault_pve_root_password | password_hash('sha512') }}"
+  no_log: true
+
+- name: Créer le répertoire de sortie des answer.toml
+  ansible.builtin.file:
+    path: "{{ pa_answer_files_dir }}"
+    state: directory
+    mode: "0700"
+  run_once: true
+
+- name: Générer {{ pve_node_name | upper }}.TOML
+  ansible.builtin.template:
+    src: answer.toml.j2
+    dest: "{{ pa_answer_files_dir }}/ANSWER_{{ pve_node_name | upper }}.TOML"
+    mode: "0600"
+  no_log: true
+
+- name: Vérifier que le TOML généré est syntaxiquement valide
+  ansible.builtin.command:
+    cmd: >-
+      python3 -c "import sys;
+      exec('import tomllib as t' if sys.version_info >= (3, 11) else 'import tomli as t');
+      t.load(open(sys.argv[1], 'rb'))"
+      {{ pa_answer_files_dir }}/ANSWER_{{ pve_node_name | upper }}.TOML
+  changed_when: false

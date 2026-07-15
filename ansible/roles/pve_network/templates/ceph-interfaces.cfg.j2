@@ -1,0 +1,8 @@
+# Managed by Ansible (role pve_network) - ne pas modifier à la main
+auto enx{{ pve_macs.ceph_public | replace(':', '') | lower }}
+iface enx{{ pve_macs.ceph_public | replace(':', '') | lower }} inet static
+    address {{ pa_ceph_public_prefix }}.{{ pve_node_ip.split('.')[-1] }}/24
+
+auto enx{{ pve_macs.ceph_cluster | replace(':', '') | lower }}
+iface enx{{ pve_macs.ceph_cluster | replace(':', '') | lower }} inet static
+    address {{ pa_ceph_cluster_prefix }}.{{ pve_node_ip.split('.')[-1] }}/24

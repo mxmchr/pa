@@ -1,0 +1,8 @@
+---
+- name: Configurer les interfaces réseau dédiées à Ceph
+  hosts: proxmox
+  gather_facts: false
+  serial: 1
+
+  roles:
+    - pve_network

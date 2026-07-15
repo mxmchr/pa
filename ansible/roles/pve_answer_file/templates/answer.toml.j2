@@ -1,0 +1,22 @@
+[global]
+keyboard = "{{ pa_keyboard }}"
+country = "{{ pa_country }}"
+fqdn = "{{ pve_node_name }}.{{ pa_domain }}"
+mailto = "{{ pa_mailto }}"
+timezone = "{{ pa_timezone }}"
+root-password-hashed = "{{ pve_root_password_hashed }}"
+
+[network]
+source = "from-answer"
+cidr = "{{ pve_node_ip }}/{{ pa_mgmt_prefix }}"
+dns = "{{ pa_mgmt_dns }}"
+gateway = "{{ pa_mgmt_gateway }}"
+filter.ID_NET_NAME_MAC = "enx{{ pve_macs.mgmt | replace(':', '') | lower }}"
+
+[disk-setup]
+filesystem = "{{ pa_disk_filesystem }}"
+zfs.raid = "{{ pa_disk_zfs_raid }}"
+zfs.ashift = {{ pa_disk_zfs_ashift }}
+zfs.compress = "{{ pa_disk_zfs_compress }}"
+zfs.checksum = "{{ pa_disk_zfs_checksum }}"
+disk-list = {{ pa_disk_list | to_json }}

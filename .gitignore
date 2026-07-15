@@ -1,18 +1,20 @@
 *.iso
 
 ###############################################################################
+# Answer files générés (contiennent un hash de mot de passe root)
+###############################################################################
+files/answer-files/*.toml
+files/answer-files/*.TOML
+!files/answer-files/.gitkeep
+
+###############################################################################
 # Ansible
 ###############################################################################
 
 # Vault password file
 .vault_pass
 .vault-password
-vault.pass
-vault.yml
 
-# Vault variables (si tu ne souhaites pas les versionner)
-**/group_vars/*/vault.yml
-**/host_vars/*/vault.yml
 
 # Variables sensibles éventuelles
 secrets.yml

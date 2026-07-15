@@ -1,0 +1,8 @@
+---
+- name: Déployer Ceph (mon, mgr, OSD, pool)
+  hosts: proxmox
+  gather_facts: false
+  serial: 1
+
+  roles:
+    - pve_ceph

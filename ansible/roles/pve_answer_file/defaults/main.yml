@@ -1,0 +1,21 @@
+---
+pa_keyboard: "fr"
+pa_country: "fr"
+pa_domain: "pa.lan"
+pa_mailto: "admin@pa.fr"
+pa_timezone: "Europe/Paris"
+
+pa_mgmt_prefix: 24
+pa_mgmt_dns: "1.1.1.1"
+pa_mgmt_gateway: "172.16.255.1"
+
+pa_disk_filesystem: "zfs"
+pa_disk_zfs_raid: "raid1"
+pa_disk_zfs_ashift: 12
+pa_disk_zfs_compress: "lz4"
+pa_disk_zfs_checksum: "on"
+pa_disk_list:
+  - "sda"
+  - "sdb"
+
+pa_answer_files_dir: "{{ playbook_dir }}/../../files/answer-files"

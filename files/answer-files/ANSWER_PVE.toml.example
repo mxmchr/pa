@@ -1,0 +1,23 @@
+[global]
+keyboard = "fr"
+country = "fr"
+fqdn = "pveX.pa.lan"
+mailto = "admin@pa.fr"
+timezone = "Europe/Paris"
+# Généré par le rôle Ansible pve_answer_file (phase 00), jamais commité en clair.
+root-password-hashed = "<CHANGE_ME>"
+
+[network]
+source = "from-answer"
+cidr = "172.16.255.1X/24"
+dns = "1.1.1.1"
+gateway = "172.16.255.1"
+filter.ID_NET_NAME_MAC = "<mac-mgmt-sans-deux-points>"
+
+[disk-setup]
+filesystem = "zfs"
+zfs.raid = "raid1"
+zfs.ashift = 12
+zfs.compress = "lz4"
+zfs.checksum = "on"
+disk-list = ["sda", "sdb"]

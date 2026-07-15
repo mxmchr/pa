@@ -1,0 +1,7 @@
+---
+pve_macs:
+  mgmt:         "00:0c:29:54:e7:84"
+  corosync:     "00:0c:29:54:e7:8e"
+  ceph_public:  "00:0c:29:54:e7:98"
+  ceph_cluster: "00:0c:29:54:e7:a2"
+  sdn_trunk:    "00:0c:29:54:e7:ac"
