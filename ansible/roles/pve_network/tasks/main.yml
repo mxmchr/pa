@@ -1,8 +1,4 @@
 ---
-# Rôle volontairement scopé pour l'instant aux interfaces requises par Ceph
-# (ceph_public, ceph_cluster). corosync et sdn_trunk seront traités dans une
-# itération suivante (corosync tourne encore sur le réseau mgmt, sdn_trunk
-# est géré côté Terraform SDN).
 
 - name: Déployer la configuration des interfaces Ceph
   ansible.builtin.template:
@@ -11,7 +7,6 @@
     owner: root
     group: root
     mode: "0644"
-    validate: "ifquery --check -a -i %s || true"
   notify: ifreload
 
 - name: Flush handlers pour activer les interfaces avant la suite

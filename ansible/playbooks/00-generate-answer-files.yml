@@ -1,7 +1,7 @@
 ---
 - name: Générer les fichiers answer.toml pour l'installation Proxmox
   hosts: proxmox
-  connection: local   # les nœuds n'existent pas encore : tout tourne sur le control node
+  connection: local
   gather_facts: false
 
   roles:

@@ -1,8 +1,19 @@
 ---
-- name: Installer les paquets Ceph (dépôt déjà configuré par pve_repositories)
-  ansible.builtin.command: pveceph install --repository no-subscription
-  args:
-    creates: /usr/bin/ceph
+- name: Installer les paquets Ceph (apt direct, pveceph install n'a pas de mode non-interactif)
+  ansible.builtin.apt:
+    name:
+      - ceph
+      - ceph-mon
+      - ceph-mgr
+      - ceph-osd
+      - ceph-common
+      - ceph-fuse
+      - ceph-volume
+      - gdisk
+    state: present
+    update_cache: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
 
 - name: Vérifier si Ceph est déjà initialisé sur le cluster
   ansible.builtin.stat:

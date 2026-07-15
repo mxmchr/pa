@@ -30,7 +30,7 @@
       Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
   notify: apt_update
 
-- name: Configure Ceph Squid no-subscription repository
+- name: Configure Ceph Tentacle no-subscription repository
   ansible.builtin.copy:
     dest: /etc/apt/sources.list.d/ceph.sources
     owner: root
@@ -38,7 +38,7 @@
     mode: "0644"
     content: |
       Types: deb
-      URIs: http://download.proxmox.com/debian/ceph-squid
+      URIs: http://download.proxmox.com/debian/ceph-tentacle
       Suites: trixie
       Components: no-subscription
       Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
@@ -47,6 +47,20 @@
 - name: Flush handlers before package operations
   ansible.builtin.meta: flush_handlers
 
+- name: Désactiver apt-listchanges (évite un blocage sur l'envoi de mail pendant l'upgrade)
+  ansible.builtin.copy:
+    dest: /etc/apt/listchanges.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [apt]
+      frontend=none
+      email_address=root
+      confirm=0
+      save_seen=/var/lib/apt/listchanges.db
+      which=news
+
 - name: Full upgrade Proxmox packages
   ansible.builtin.apt:
     upgrade: dist
@@ -54,3 +68,6 @@
     autoclean: true
     update_cache: true
     force_apt_get: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    APT_LISTCHANGES_FRONTEND: none
