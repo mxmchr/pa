@@ -14,12 +14,7 @@ files/answer-files/*.TOML
 # Vault password file
 .vault_pass
 .vault-password
-vault.pass
-vault.yml
 
-# Vault variables (si tu ne souhaites pas les versionner)
-**/group_vars/*/vault.yml
-**/host_vars/*/vault.yml
 
 # Variables sensibles éventuelles
 secrets.yml
