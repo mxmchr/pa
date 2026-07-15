@@ -16,24 +16,32 @@ L'objectif est de :
 
 ```text
 .
-├── IaC/
-│   └── Ansible/
-│       └── Proxmox/
-│           ├── collections/
-│           ├── inventory/
-│           ├── playbooks/
-│           │   ├── 01-repositories.yml
-│           │   └── 02-cluster.yml
-│           ├── roles/
-│           │   ├── pve_cluster/
-│           │   ├── pve_python/
-│           │   └── pve_repositories/
-│           └── ansible.cfg
-├── ANSWER_PVE1.TOML
-├── ANSWER_PVE2.TOML
-├── ANSWER_PVE3.TOML
+├── ansible/
+│   ├── collections/
+│   ├── inventory/production/
+│   ├── playbooks/
+│   │   ├── 01-repositories.yml
+│   │   └── 03-cluster.yml   # 02-network.yml et 00-generate-answer-files.yml à venir
+│   ├── roles/
+│   │   ├── pve_cluster/
+│   │   └── pve_repositories/
+│   └── ansible.cfg
+├── terraform/
+│   ├── modules/              # pool, sdn_vlan, capabilities, lxc, vm
+│   └── live/
+│       ├── 01-fabric/        # zones SDN / VLAN (state isolé)
+│       └── 02-workloads/     # pool, capabilities, LXC/VM (state isolé)
+├── docs/
+│   ├── architecture/plan-adressage.md
+│   └── decisions/security-notes.md
+├── files/answer-files/       # ANSWER_PVE*.TOML générés, gitignorés (voir security-notes.md)
 └── README.md
 ```
+
+> Cette structure remplace l'ancienne arborescence `IaC/Ansible/Proxmox/...` et
+> `IaC/Terraform/Build/...` (branche `restructure/iac-phases`). Voir
+> `docs/decisions/security-notes.md` avant toute chose : un mot de passe root a
+> été committé en clair (hashé) et doit être changé.
 
 ---
 
@@ -69,7 +77,7 @@ wget https://enterprise.proxmox.com/iso/proxmox-ve_9.2-1.iso
 
 # Configuration des fichiers Answer
 
-Modifier les trois fichiers présents à la racine du dépôt :
+Modifier les trois fichiers dans `files/answer-files/` (copier `ANSWER_PVE.toml.example` en `ANSWER_PVE1.TOML`, `ANSWER_PVE2.TOML`, `ANSWER_PVE3.TOML` — ces fichiers contiennent un secret et sont gitignorés, voir `docs/decisions/security-notes.md`) :
 
 - `ANSWER_PVE1.TOML`
 - `ANSWER_PVE2.TOML`
@@ -105,7 +113,7 @@ Puis générer une ISO pour chaque serveur.
 proxmox-auto-install-assistant prepare-iso \
     proxmox-ve_9.2-1.iso \
     --fetch-from iso \
-    --answer-file ANSWER_PVE1.TOML \
+    --answer-file files/answer-files/ANSWER_PVE1.TOML \
     --output proxmox-ve-pve1.iso
 ```
 
@@ -126,7 +134,7 @@ Il ne reste plus qu'à démarrer chaque serveur sur son ISO correspondante.
 Une fois les trois serveurs installés et accessibles en SSH :
 
 ```bash
-cd IaC/Ansible/Proxmox
+cd ansible
 ```
 
 ---
@@ -152,7 +160,7 @@ Cette étape :
 Créer automatiquement le cluster :
 
 ```bash
-ansible-playbook playbooks/02-cluster.yml
+ansible-playbook playbooks/03-cluster.yml
 ```
 
 Ce playbook :
@@ -193,7 +201,7 @@ ansible-playbook playbooks/01-repositories.yml
 7. Puis :
 
 ```bash
-ansible-playbook playbooks/02-cluster.yml
+ansible-playbook playbooks/03-cluster.yml
 ```
 
 Le cluster Proxmox est alors entièrement déployé et opérationnel.
