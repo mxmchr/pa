@@ -1,0 +1,91 @@
+---
+- name: Installer les paquets Ceph (dépôt déjà configuré par pve_repositories)
+  ansible.builtin.command: pveceph install --repository no-subscription
+  args:
+    creates: /usr/bin/ceph
+
+- name: Vérifier si Ceph est déjà initialisé sur le cluster
+  ansible.builtin.stat:
+    path: /etc/pve/ceph.conf
+  register: ceph_conf
+
+- name: Initialiser Ceph (une seule fois, depuis le nœud primaire)
+  ansible.builtin.command: >-
+    pveceph init
+    --network {{ pa_ceph_public_network }}
+    --cluster-network {{ pa_ceph_cluster_network }}
+  when:
+    - inventory_hostname == pve_primary_node
+    - not ceph_conf.stat.exists
+
+- name: Vérifier si ce nœud a déjà un moniteur Ceph
+  ansible.builtin.stat:
+    path: "/var/lib/ceph/mon/ceph-{{ pve_node_name }}"
+  register: ceph_mon_dir
+
+- name: Créer le moniteur Ceph sur ce nœud
+  ansible.builtin.command: pveceph mon create
+  when: not ceph_mon_dir.stat.exists
+
+- name: Vérifier si ce nœud a déjà un manager Ceph
+  ansible.builtin.stat:
+    path: "/var/lib/ceph/mgr/ceph-{{ pve_node_name }}"
+  register: ceph_mgr_dir
+
+- name: Créer le manager Ceph sur ce nœud
+  ansible.builtin.command: pveceph mgr create
+  when: not ceph_mgr_dir.stat.exists
+
+- name: Vérifier si chaque disque OSD est déjà utilisé par Ceph
+  ansible.builtin.shell: |
+    set -o pipefail
+    ceph-volume lvm list {{ item }} 2>/dev/null | grep -q "osd id"
+  register: ceph_osd_check
+  changed_when: false
+  failed_when: false
+  loop: "{{ pa_ceph_osd_disks }}"
+
+- name: Créer les OSD manquants
+  ansible.builtin.command: "pveceph osd create {{ item.item }}"
+  loop: "{{ ceph_osd_check.results }}"
+  when: item.rc != 0
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Vérifier si le pool {{ pa_ceph_pool_name }} existe déjà
+  ansible.builtin.command: ceph osd pool ls
+  register: ceph_pool_ls
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+
+- name: Créer le pool Ceph (rattaché automatiquement au storage Proxmox)
+  ansible.builtin.command: >-
+    pveceph pool create {{ pa_ceph_pool_name }}
+    --size {{ pa_ceph_pool_size }}
+    --min_size {{ pa_ceph_pool_min_size }}
+    --add_storages
+  when: pa_ceph_pool_name not in ceph_pool_ls.stdout_lines
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+
+- name: Récupérer l'état de santé du cluster Ceph
+  ansible.builtin.command: ceph -s --format json
+  register: ceph_status
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+
+- name: Afficher l'état de santé Ceph
+  ansible.builtin.debug:
+    msg: "Ceph health: {{ (ceph_status.stdout | from_json).health.status }}"
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+
+- name: Échouer si Ceph n'est pas au moins HEALTH_WARN
+  ansible.builtin.assert:
+    that:
+      - (ceph_status.stdout | from_json).health.status in ['HEALTH_OK', 'HEALTH_WARN']
+    fail_msg: "Ceph n'est pas en bonne santé : {{ (ceph_status.stdout | from_json).health.status }}"
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"

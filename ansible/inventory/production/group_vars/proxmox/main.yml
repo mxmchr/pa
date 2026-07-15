@@ -10,3 +10,16 @@ pve_api_port: 8006
 pve_validate_certs: false
 
 pve_api_password: "{{ vault_pve_root_password }}"
+# Underlay inter-Proxmox (cf. docs/architecture/plan-adressage.md)
+pa_ceph_public_network: "172.16.253.0/24"
+pa_ceph_public_prefix: "172.16.253"
+pa_ceph_cluster_network: "172.16.252.0/24"
+pa_ceph_cluster_prefix: "172.16.252"
+
+# Ceph
+pa_ceph_osd_disks:
+  - /dev/sdc
+  - /dev/sdd
+pa_ceph_pool_name: "pa-pool"
+pa_ceph_pool_size: 3
+pa_ceph_pool_min_size: 2

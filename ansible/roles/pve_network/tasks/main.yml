@@ -1,0 +1,38 @@
+---
+# Rôle volontairement scopé pour l'instant aux interfaces requises par Ceph
+# (ceph_public, ceph_cluster). corosync et sdn_trunk seront traités dans une
+# itération suivante (corosync tourne encore sur le réseau mgmt, sdn_trunk
+# est géré côté Terraform SDN).
+
+- name: Déployer la configuration des interfaces Ceph
+  ansible.builtin.template:
+    src: ceph-interfaces.cfg.j2
+    dest: /etc/network/interfaces.d/ceph.cfg
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "ifquery --check -a -i %s || true"
+  notify: ifreload
+
+- name: Flush handlers pour activer les interfaces avant la suite
+  ansible.builtin.meta: flush_handlers
+
+- name: Vérifier que l'interface ceph_public est up
+  ansible.builtin.command: "ip -4 addr show enx{{ pve_macs.ceph_public | replace(':', '') | lower }}"
+  register: ceph_public_iface
+  changed_when: false
+
+- name: Vérifier que l'interface ceph_cluster est up
+  ansible.builtin.command: "ip -4 addr show enx{{ pve_macs.ceph_cluster | replace(':', '') | lower }}"
+  register: ceph_cluster_iface
+  changed_when: false
+
+- name: Assert - IP bien présente sur ceph_public
+  ansible.builtin.assert:
+    that: "pa_ceph_public_prefix in ceph_public_iface.stdout"
+    fail_msg: "L'interface ceph_public n'a pas l'IP attendue sur {{ inventory_hostname }}"
+
+- name: Assert - IP bien présente sur ceph_cluster
+  ansible.builtin.assert:
+    that: "pa_ceph_cluster_prefix in ceph_cluster_iface.stdout"
+    fail_msg: "L'interface ceph_cluster n'a pas l'IP attendue sur {{ inventory_hostname }}"
