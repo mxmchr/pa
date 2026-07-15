@@ -1,0 +1,8 @@
+---
+- name: Télécharger l'ISO Proxmox VE et générer les images d'installation automatique
+  hosts: proxmox
+  connection: local   # rien n'est encore installé : tout tourne sur le control node
+  gather_facts: false
+
+  roles:
+    - pve_install_media

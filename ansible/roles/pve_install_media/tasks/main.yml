@@ -1,0 +1,67 @@
+---
+# Rôle exécuté en local sur le control node (les nœuds PVE n'existent pas
+# encore à ce stade). proxmox-auto-install-assistant est buildé pour trixie
+# (glibc >= 2.39) : sur un control node plus ancien (ex. Debian 12 bookworm),
+# on le fait tourner dans un conteneur Docker basé sur debian:trixie plutôt
+# que de polluer/mettre à niveau le système hôte.
+
+- name: Vérifier que Docker est disponible sur le control node
+  ansible.builtin.command: docker version --format '{{ "{{" }}.Server.Version{{ "}}" }}'
+  register: docker_check
+  changed_when: false
+  run_once: true
+
+- name: Créer le dossier de travail ISO
+  ansible.builtin.file:
+    path: "{{ pa_iso_dir }}"
+    state: directory
+    mode: "0755"
+  run_once: true
+
+- name: Vérifier si l'image pa-pve-auto-install existe déjà
+  ansible.builtin.command: "docker image inspect pa-pve-auto-install:{{ pa_proxmox_ve_version }}"
+  register: docker_image_check
+  changed_when: false
+  failed_when: false
+  run_once: true
+
+- name: Construire l'image pa-pve-auto-install (debian:trixie + proxmox-auto-install-assistant)
+  ansible.builtin.command: >-
+    docker build -t pa-pve-auto-install:{{ pa_proxmox_ve_version }}
+    {{ pa_docker_context_dir }}
+  when: docker_image_check.rc != 0
+  run_once: true
+
+- name: Télécharger l'ISO Proxmox VE {{ pa_proxmox_ve_version }} (checksum vérifié)
+  ansible.builtin.get_url:
+    url: "{{ pa_proxmox_ve_iso_url }}"
+    dest: "{{ pa_iso_dir }}/proxmox-ve_{{ pa_proxmox_ve_version }}.iso"
+    checksum: "sha256:{{ pa_proxmox_ve_iso_sha256 }}"
+    mode: "0644"
+  run_once: true
+
+- name: Générer l'ISO auto-installable pour {{ pve_node_name }} (via conteneur)
+  ansible.builtin.command: >-
+    docker run --rm
+    -v {{ pa_iso_dir }}:/work/iso
+    -v {{ pa_answer_files_dir }}:/work/answers:ro
+    pa-pve-auto-install:{{ pa_proxmox_ve_version }}
+    prepare-iso /work/iso/proxmox-ve_{{ pa_proxmox_ve_version }}.iso
+    --fetch-from iso
+    --answer-file /work/answers/ANSWER_{{ pve_node_name | upper }}.TOML
+    --output /work/iso/proxmox-ve-{{ pve_node_name }}.iso
+  args:
+    creates: "{{ pa_iso_dir }}/proxmox-ve-{{ pve_node_name }}.iso"
+
+- name: Vérifier que l'ISO générée est bien auto-installable (via conteneur)
+  ansible.builtin.command: >-
+    docker run --rm
+    -v {{ pa_iso_dir }}:/work/iso
+    pa-pve-auto-install:{{ pa_proxmox_ve_version }}
+    inspect-iso /work/iso/proxmox-ve-{{ pve_node_name }}.iso
+  register: iso_inspect
+  changed_when: false
+
+- name: Afficher le résultat de l'inspection
+  ansible.builtin.debug:
+    var: iso_inspect.stdout_lines

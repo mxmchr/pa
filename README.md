@@ -1,14 +1,14 @@
 # Proxmox Infrastructure as Code
 
-Ce dépôt permet d'automatiser le déploiement d'une infrastructure **Proxmox VE** à l'aide d'Ansible.
+Ce dépôt automatise le déploiement d'une plateforme **Proxmox VE** hyperconvergée
+(3 nœuds, ZFS, Ceph, SDN) de A à Z : génération des médias d'installation,
+formation du cluster, stockage Ceph, puis (à venir) réseau SDN/EVPN via
+Terraform, tooling et Zero Trust.
 
-L'objectif est de :
-
-- Déployer automatiquement trois nœuds Proxmox via les fichiers `answer.toml`
-- Préparer des ISO d'installation personnalisées
-- Configurer les dépôts Proxmox
-- Installer les dépendances Python
-- Créer automatiquement un cluster Proxmox
+Approche : tout en IaC, découpé en **phases numérotées**, chacune testable
+indépendamment. Ansible pour tout ce qui est configuration système
+(installation, cluster, réseau, Ceph, tooling), Terraform pour tout ce qui
+est ressources Proxmox déclaratives (SDN, pools, VM/LXC).
 
 ---
 
@@ -17,204 +17,151 @@ L'objectif est de :
 ```text
 .
 ├── ansible/
-│   ├── collections/
+│   ├── ansible.cfg
+│   ├── collections/requirements.yml
 │   ├── inventory/production/
+│   │   ├── hosts.yml                  # pve1/pve2/pve3
+│   │   ├── host_vars/                 # MAC par nœud (mgmt, corosync, ceph_public, ceph_cluster, sdn_trunk)
+│   │   └── group_vars/
+│   │       ├── all/vars.yml           # domaine, clavier, disques boot, chemins partagés
+│   │       ├── all/vault.yml          # chiffré (ansible-vault) — mot de passe root, jamais commité en clair
+│   │       └── proxmox/main.yml       # cluster, Ceph, ISO, réseau
 │   ├── playbooks/
-│   │   ├── 01-repositories.yml
-│   │   └── 03-cluster.yml   # 02-network.yml et 00-generate-answer-files.yml à venir
-│   ├── roles/
-│   │   ├── pve_cluster/
-│   │   └── pve_repositories/
-│   └── ansible.cfg
+│   │   ├── 00-generate-answer-files.yml   # génère les ANSWER_PVEx.TOML (Jinja + vault)
+│   │   ├── 00-prepare-install-media.yml   # télécharge l'ISO PVE + génère les ISO auto-installables
+│   │   ├── 01-repositories.yml            # dépôts Proxmox/Ceph, upgrade
+│   │   ├── 02-network.yml                 # interfaces dédiées Ceph (ceph_public, ceph_cluster)
+│   │   ├── 03-cluster.yml                 # formation du cluster Proxmox
+│   │   └── 04-ceph.yml                    # mon/mgr/OSD/pool Ceph
+│   └── roles/
+│       ├── pve_answer_file/           # phase 00
+│       ├── pve_install_media/         # phase 00 (ISO, via conteneur Docker trixie)
+│       ├── pve_repositories/          # phase 01
+│       ├── pve_network/               # phase 02 (scopé Ceph pour l'instant)
+│       ├── pve_cluster/               # phase 03
+│       └── pve_ceph/                  # phase 04
 ├── terraform/
-│   ├── modules/              # pool, sdn_vlan, capabilities, lxc, vm
+│   ├── modules/                       # pool, sdn_vlan, capabilities, lxc, vm
 │   └── live/
-│       ├── 01-fabric/        # zones SDN / VLAN (state isolé)
-│       └── 02-workloads/     # pool, capabilities, LXC/VM (state isolé)
+│       ├── 01-fabric/                 # zones SDN (LAN/SRV/DMZ/ADM/BCK/DEV) — state isolé
+│       ├── 02-workloads/              # pool, capabilities, LXC/VM — state isolé
+│       └── 03-zero-trust/             # à venir
 ├── docs/
-│   ├── architecture/plan-adressage.md
-│   └── decisions/security-notes.md
-├── files/answer-files/       # ANSWER_PVE*.TOML générés, gitignorés (voir security-notes.md)
+│   ├── architecture/plan-adressage.md # plan IP complet (underlay + VLAN SDN)
+│   └── decisions/security-notes.md    # rotation du mot de passe root, gestion du vault
+├── files/
+│   ├── answer-files/                  # ANSWER_PVEx.TOML générés, gitignorés
+│   ├── iso/                           # ISO PVE + ISO auto-installables, gitignorées
+│   └── docker/pve-auto-install/       # image trixie pour proxmox-auto-install-assistant
 └── README.md
 ```
-
-> Cette structure remplace l'ancienne arborescence `IaC/Ansible/Proxmox/...` et
-> `IaC/Terraform/Build/...` (branche `restructure/iac-phases`). Voir
-> `docs/decisions/security-notes.md` avant toute chose : un mot de passe root a
-> été committé en clair (hashé) et doit être changé.
 
 ---
 
 # Prérequis
 
-- 3 serveurs physiques
-- Un poste d'administration avec Ansible
-- Accès SSH aux trois nœuds
-- Python 3
-- Ansible
-
-Installation d'Ansible :
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-
-pip install ansible
-ansible-galaxy collection install community.general community.proxmox
-```
+- 3 serveurs physiques (5 NIC chacun : mgmt, corosync, ceph_public, ceph_cluster, sdn_trunk)
+- Un poste d'administration Linux (WSL ok) avec :
+  - Python 3, `pip install ansible-core passlib`
+  - `ansible-galaxy collection install -r ansible/collections/requirements.yml`
+  - **Docker** (nécessaire à la phase `00-prepare-install-media` : `proxmox-auto-install-assistant`
+    est buildé pour Debian trixie — glibc ≥ 2.39 — et ne s'installe pas nativement sur un
+    control node plus ancien, ex. Debian 12 bookworm ; on le fait tourner dans un conteneur)
 
 ---
 
-# Téléchargement de Proxmox VE
+# Le mot de passe root (Ansible Vault)
 
-Télécharger l'image officielle :
-
-```bash
-wget https://enterprise.proxmox.com/iso/proxmox-ve_9.2-1.iso
-```
-
----
-
-# Configuration des fichiers Answer
-
-Modifier les trois fichiers dans `files/answer-files/` (copier `ANSWER_PVE.toml.example` en `ANSWER_PVE1.TOML`, `ANSWER_PVE2.TOML`, `ANSWER_PVE3.TOML` — ces fichiers contiennent un secret et sont gitignorés, voir `docs/decisions/security-notes.md`) :
-
-- `ANSWER_PVE1.TOML`
-- `ANSWER_PVE2.TOML`
-- `ANSWER_PVE3.TOML`
-
-Adapter notamment :
-
-- le hostname
-- l'adresse IP
-- la passerelle
-- le DNS
-- le mot de passe root
-- le disque d'installation
-- les paramètres réseau
-
-Chaque serveur doit posséder son propre fichier `ANSWER_PVEX.TOML`.
-
----
-
-# Préparation des ISO
-
-Installer l'outil Proxmox permettant de générer une ISO d'installation automatique :
-
-```bash
-apt install proxmox-auto-install-assistant
-```
-
-Puis générer une ISO pour chaque serveur.
-
-## Exemple
-
-```bash
-proxmox-auto-install-assistant prepare-iso \
-    proxmox-ve_9.2-1.iso \
-    --fetch-from iso \
-    --answer-file files/answer-files/ANSWER_PVE1.TOML \
-    --output proxmox-ve-pve1.iso
-```
-
-Cette commande est celle recommandée par la documentation officielle Proxmox pour intégrer directement le fichier `answer.toml` dans l'ISO.
-
-À l'issue de cette étape, vous disposez de trois ISO prêtes à être utilisées :
-
-- `proxmox-ve-pve1.iso`
-- `proxmox-ve-pve2.iso`
-- `proxmox-ve-pve3.iso`
-
-Il ne reste plus qu'à démarrer chaque serveur sur son ISO correspondante.
-
----
-
-# Déploiement Ansible
-
-Une fois les trois serveurs installés et accessibles en SSH :
+Le mot de passe root des 3 nœuds n'est jamais stocké en clair dans le repo — il vit dans
+`ansible/inventory/production/group_vars/all/vault.yml`, chiffré :
 
 ```bash
 cd ansible
+ansible-vault create inventory/production/group_vars/all/vault.yml
+# contenu : vault_pve_root_password: "ton-mot-de-passe"
 ```
 
----
+Toutes les commandes `ansible-playbook` ci-dessous nécessitent `--vault-password-file ../.vault_pass`
+(fichier local, gitignoré) ou `--ask-vault-pass`.
 
-# Étape 1 : Configuration des dépôts
-
-Configure les dépôts Proxmox et installe les dépendances nécessaires.
-
-```bash
-ansible-playbook playbooks/01-repositories.yml
-```
-
-Cette étape :
-
-- configure les dépôts Proxmox
-- installe les dépendances Python
-- installe la bibliothèque Python utilisée par les modules Ansible Proxmox
-
----
-
-# Étape 2 : Création du cluster
-
-Créer automatiquement le cluster :
-
-```bash
-ansible-playbook playbooks/03-cluster.yml
-```
-
-Ce playbook :
-
-- crée le cluster
-- ajoute les nœuds
-- vérifie le bon fonctionnement du cluster
-
----
-
-# Vérifications
-
-Avant d'exécuter les playbooks, vérifier :
-
-- les adresses IP dans l'inventaire Ansible
-- les accès SSH
-- les clés SSH ou mots de passe
-- les fichiers `ANSWER_PVE*.TOML`
+⚠️ Un mot de passe avait été committé (hashé) sur ce repo avant sa réorganisation — voir
+`docs/decisions/security-notes.md` si ce n'est pas déjà fait.
 
 ---
 
 # Ordre d'exécution
 
-1. Télécharger l'ISO Proxmox.
-2. Modifier les fichiers :
-   - `ANSWER_PVE1.TOML`
-   - `ANSWER_PVE2.TOML`
-   - `ANSWER_PVE3.TOML`
-3. Générer les trois ISO automatiques.
-4. Installer les trois serveurs Proxmox.
-5. Vérifier l'accès SSH.
-6. Exécuter :
+## 1. Générer les fichiers `answer.toml`
+
+```bash
+ansible-playbook playbooks/00-generate-answer-files.yml --vault-password-file ../.vault_pass
+```
+
+Produit `files/answer-files/ANSWER_PVE{1,2,3}.TOML` à partir du template Jinja et des MAC
+déclarées en `host_vars/`. Le hash du mot de passe root (sha512-crypt) est recalculé à
+chaque run à partir du vault — normal que la ligne change d'un run à l'autre.
+
+## 2. Télécharger l'ISO et générer les médias d'installation
+
+```bash
+ansible-playbook playbooks/00-prepare-install-media.yml --vault-password-file ../.vault_pass
+```
+
+Télécharge `proxmox-ve_9.2-1.iso` (checksum vérifié), builde une image Docker `debian:trixie`
+avec `proxmox-auto-install-assistant`, puis génère `files/iso/proxmox-ve-pve{1,2,3}.iso` —
+chacune avec son `answer.toml` intégré. Pour forcer une regénération après modification
+d'un answer.toml, supprime l'ISO correspondante avant de relancer.
+
+## 3. Installer les 3 serveurs physiques
+
+Graver/monter chaque `proxmox-ve-pveX.iso` sur son serveur correspondant et démarrer dessus
+(installation entièrement automatique, aucune interaction).
+
+## 4. Dépôts et dépendances
 
 ```bash
 ansible-playbook playbooks/01-repositories.yml
 ```
 
-7. Puis :
+## 5. Interfaces réseau dédiées à Ceph
+
+```bash
+ansible-playbook playbooks/02-network.yml
+```
+
+Configure `ceph_public` (172.16.253.0/24) et `ceph_cluster` (172.16.252.0/24) sur les NIC
+dédiées. Voir `docs/architecture/plan-adressage.md` pour le plan complet.
+
+## 6. Cluster Proxmox
 
 ```bash
 ansible-playbook playbooks/03-cluster.yml
 ```
 
-Le cluster Proxmox est alors entièrement déployé et opérationnel.
+## 7. Ceph (mon, mgr, OSD, pool)
+
+```bash
+ansible-playbook playbooks/04-ceph.yml
+```
+
+2 OSD par nœud (`/dev/sdc`, `/dev/sdd`), pool `pa-pool` en réplication 3/2, rattaché
+automatiquement au storage Proxmox.
+
+---
+
+# Vérifications avant de lancer
+
+- Les MAC dans `ansible/inventory/production/host_vars/*.yml`
+- Le plan d'adressage dans `docs/architecture/plan-adressage.md`
+- Le vault (`vault_pve_root_password` bien défini)
+- Docker disponible sur le control node (phase `00-prepare-install-media`)
 
 ---
 
 # Évolutions prévues
 
-- Déploiement PXE
-- Configuration automatique du stockage
-- Déploiement Ceph
-- Configuration réseau avancée
-- Gestion des certificats
-- Création des utilisateurs
-- Configuration des sauvegardes
-```
+- SDN / EVPN (Terraform `terraform/live/01-fabric`)
+- Pool, capabilities, VM/LXC (Terraform `terraform/live/02-workloads`)
+- Tooling (DNS, DHCP, IAM, NTP, Vault, Git, Observabilité, Bastion, Sauvegarde)
+- Zero Trust (segmentation, ZTNA)
+- Corosync sur son NIC dédié (tourne encore sur le réseau mgmt pour l'instant)
