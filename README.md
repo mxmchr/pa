@@ -103,23 +103,18 @@ ansible-vault create inventory/production/group_vars/all/vault.yml
 echo "mot-de-passe-du-vault" > ../.vault_pass && chmod 600 ../.vault_pass
 ```
 
-⚠️ Un mot de passe avait été committé (hashé) sur ce repo avant sa réorganisation - voir
-`docs/decisions/security-notes.md`.
-
----
-
 ## 5. Ordre d'exécution complet
 
 ### 5.1. Phase 00 - Générer les `answer.toml`
 
 ```bash
-ansible-playbook playbooks/00-generate-answer-files.yml --vault-password-file ../.vault_pass
+ansible-playbook playbooks/00-generate-answer-files.yml
 ```
 
 ### 5.2. Phase 00 - Télécharger l'ISO et générer les médias d'installation
 
 ```bash
-ansible-playbook playbooks/00-prepare-install-media.yml --vault-password-file ../.vault_pass
+ansible-playbook playbooks/00-prepare-install-media.yml
 ```
 
 Télécharge `proxmox-ve_9.2-1.iso` (checksum vérifié), build l'image Docker `pa-pve-auto-install`, génère
@@ -144,10 +139,6 @@ ansible proxmox -m ping
 ansible-playbook playbooks/01-repositories.yml
 ```
 
-⚠️ **Piège connu** : `apt-listchanges` peut bloquer indéfiniment en essayant d'envoyer un mail via Postfix
-(en cours de mise à jour au même moment) → `rc: -9`. Le rôle le désactive (`frontend=none`) avant l'upgrade.
-Un nouveau noyau peut être installé - reboot manuel si nécessaire.
-
 ### 5.5. Phase 02 - Interfaces réseau dédiées (Ceph + corosync)
 
 ```bash
@@ -163,11 +154,6 @@ sur les NIC dédiées.
 ansible-playbook playbooks/03-cluster.yml --vault-password-file ../.vault_pass
 ```
 
-⚠️ Le rôle crée désormais le cluster avec `link0` = réseau corosync dédié et `link1` = mgmt en fallback -
-mais ça ne s'applique qu'à un **cluster créé de zéro**. Si ton cluster existe déjà avec corosync sur mgmt
-uniquement, la migration vers le lien dédié se fait à la main (édition prudente de `/etc/pve/corosync.conf`
-en 2 temps, voir l'historique de discussion - je peux te redonner la procédure si besoin).
-
 ### 5.7. Phase 04 - Ceph (mon, mgr, OSD, pool)
 
 ```bash
@@ -175,11 +161,6 @@ ansible-playbook playbooks/04-ceph.yml
 ```
 
 2 OSD par nœud (`/dev/sdc`, `/dev/sdd`), pool `pa-pool` en réplication 3/2.
-
-⚠️ **Pièges connus** :
-- `pveceph install` n'a pas de mode non-interactif → le rôle installe les paquets Ceph directement via `apt`.
-- Le dépôt Ceph configuré en phase 01 pointe vers **Tentacle (20.2)**, la version par défaut sur les
-  installations neuves PVE 9.2 (Squid 19.x n'est plus le défaut). Les 3 nœuds doivent avoir la même version.
 
 ### 5.8. Phase 05 - Token API pour Terraform
 
@@ -292,32 +273,10 @@ ssh root@172.16.255.11 pvecm status   # 3 nœuds dans le cluster
 ssh root@172.16.255.11 ceph -s        # HEALTH_OK, 3 mon, 3 mgr, 6 OSD up/in
 ```
 
----
-
-## 9. Pièges connus (récapitulatif)
-
-- **apt-listchanges** peut bloquer un upgrade non-interactif en essayant d'envoyer un mail via Postfix -
-  désactivé par le rôle `pve_repositories`.
-- **`pveceph install`** n'a pas de mode non-interactif - le rôle `pve_ceph` installe les paquets via `apt`
-  directement plutôt que d'appeler cet outil.
-- **Dépôt Ceph** : Tentacle (20.2) est le défaut sur PVE 9.2, pas Squid (19.x).
-- **`proxmox-auto-install-assistant`** est buildé pour Debian trixie (glibc ≥ 2.39) - inutilisable
-  nativement sur un poste plus ancien, d'où le passage par un conteneur Docker.
-- **Modules `community.proxmox.*`** (rôle/user/ACL) sont des appels API HTTP - ils doivent être délégués
-  au control node (`delegate_to: localhost`), jamais exécutés "sur" un nœud PVE via SSH.
-- **Secret de token Proxmox** : affiché une seule fois à la création, jamais récupérable ensuite - le rôle
-  `pve_terraform_token` vérifie l'existence avant de regénérer.
-- **HA Rules PVE 9** (node/resource-affinity) : pas encore supportées par le provider Terraform
-  `bpg/proxmox` - on utilise les groupes HA classiques (node-affinity uniquement) en attendant.
-
----
-
-## 10. Évolutions prévues
+## 9. Évolutions prévues
 
 - Peupler `terraform/live/02-compute` avec les premiers services (VM/LXC)
 - Tester et valider `terraform/live/03-ha`
 - Zero Trust (`terraform/live/04-zero-trust`)
 - Tooling (DNS, DHCP, IAM, NTP, Vault, Git, Observabilité, Bastion, Sauvegarde)
-- Migration corosync vers son NIC dédié sur le cluster existant (procédure manuelle documentée dans
-  l'historique du projet)
 - Resource-affinity HA dès que le provider `bpg/proxmox` le supportera
