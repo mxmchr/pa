@@ -1,0 +1,99 @@
+---
+
+- name: Créer le rôle Proxmox à privilèges minimaux pour Terraform
+  community.proxmox.proxmox_role:
+    api_host: "{{ ansible_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    validate_certs: "{{ pve_validate_certs }}"
+    roleid: "{{ pa_terraform_role_id }}"
+    privs: "{{ pa_terraform_privileges }}"
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+
+- name: Générer un mot de passe aléatoire pour le compte terraform@pve
+  ansible.builtin.set_fact:
+    pa_terraform_user_password: "{{ lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+  run_once: true
+  no_log: true
+
+- name: Créer l'utilisateur terraform@pve
+  community.proxmox.proxmox_user:
+    api_host: "{{ ansible_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    validate_certs: "{{ pve_validate_certs }}"
+    name: "{{ pa_terraform_user }}"
+    password: "{{ pa_terraform_user_password }}"
+    comment: "Compte de service Terraform - Managed by Ansible"
+    enable: true
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+
+- name: Lier le rôle TerraformProvisioner à terraform@pve sur / (cluster-wide)
+  community.proxmox.proxmox_access_acl:
+    api_host: "{{ ansible_host }}"
+    api_user: "{{ pve_api_user }}"
+    api_password: "{{ pve_api_password }}"
+    validate_certs: "{{ pve_validate_certs }}"
+    path: "/"
+    type: user
+    ugid: "{{ pa_terraform_user }}"
+    roleid: "{{ pa_terraform_role_id }}"
+    propagate: true
+  run_once: true
+  delegate_to: localhost
+  no_log: true
+
+- name: Vérifier si un token existe déjà pour terraform@pve
+  ansible.builtin.command: "pveum user token list {{ pa_terraform_user }} --output-format json"
+  register: pa_terraform_token_list
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+
+- name: Générer le token API (uniquement s'il n'existe pas déjà)
+  ansible.builtin.command: >-
+    pveum user token add {{ pa_terraform_user }} {{ pa_terraform_token_id }}
+    --privsep 0 --output-format json
+  register: pa_terraform_token_create
+  when: pa_terraform_token_id not in (pa_terraform_token_list.stdout | from_json | map(attribute='tokenid') | list)
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+  no_log: true
+
+- name: Avertir si le token existait déjà (secret non récupérable de nouveau)
+  ansible.builtin.debug:
+    msg: >-
+      Le token {{ pa_terraform_user }}!{{ pa_terraform_token_id }} existe déjà.
+      Son secret ne peut pas être récupéré une seconde fois - si .env.terraform
+      ne contient plus la ligne PROXMOX_VE_API_TOKEN, supprime le token
+      (pveum user token remove {{ pa_terraform_user }} {{ pa_terraform_token_id }})
+      et relance ce playbook pour en générer un nouveau.
+  when: pa_terraform_token_create is skipped
+  run_once: true
+
+- name: Écrire endpoint/insecure dans .env.terraform (régénéré à chaque run)
+  ansible.builtin.blockinfile:
+    path: "{{ playbook_dir }}/../../.env.terraform"
+    create: true
+    mode: "0600"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - connexion Proxmox (pve_terraform_token)"
+    block: |
+      export PROXMOX_VE_ENDPOINT="https://{{ pve_primary_ip }}:{{ pve_api_port }}/"
+      export PROXMOX_VE_INSECURE="{{ (not pve_validate_certs) | lower }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Écrire/mettre à jour le token dans .env.terraform (uniquement si fraîchement créé)
+  ansible.builtin.lineinfile:
+    path: "{{ playbook_dir }}/../../.env.terraform"
+    create: true
+    mode: "0600"
+    regexp: '^export PROXMOX_VE_API_TOKEN='
+    line: 'export PROXMOX_VE_API_TOKEN="{{ pa_terraform_user }}!{{ pa_terraform_token_id }}={{ (pa_terraform_token_create.stdout | from_json).value }}"'
+  delegate_to: localhost
+  when: pa_terraform_token_create is changed
+  no_log: true

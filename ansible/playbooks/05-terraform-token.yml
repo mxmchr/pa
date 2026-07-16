@@ -1,0 +1,7 @@
+---
+- name: Créer le rôle/utilisateur/token Proxmox dédié à Terraform
+  hosts: proxmox
+  gather_facts: false
+
+  roles:
+    - pve_terraform_token

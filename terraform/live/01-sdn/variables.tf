@@ -1,62 +1,58 @@
 ############################################
-### Connexion Proxmox / Cloudflare       ###
+###           Connexion Proxmox          ###
 ############################################
 
-variable "proxmox_api_url" {
-  description = "URL de l'API Proxmox"
-  type        = string
-}
+# variable "proxmox_api_url" {
+#   description = "URL de l'API Proxmox"
+#   type        = string
+# }
 
-variable "proxmox_api_token_id" {
-  description = "ID du token API Proxmox"
-  type        = string
-}
+# variable "proxmox_api_token_id" {
+#   description = "ID du token API Proxmox"
+#   type        = string
+# }
 
-variable "proxmox_api_token_secret" {
-  description = "Secret du token API Proxmox"
-  type        = string
-  sensitive   = true
-}
+# variable "proxmox_api_token_secret" {
+#   description = "Secret du token API Proxmox"
+#   type        = string
+#   sensitive   = true
+# }
 
-variable "proxmox_tls_insecure" {
-  description = "Désactive la vérification TLS (non recommandé en prod)"
-  type        = bool
-  default     = false
-}
+# variable "proxmox_tls_insecure" {
+#   description = "Désactive la vérification TLS (non recommandé en prod)"
+#   type        = bool
+#   default     = false
+# }
 
-variable "ssh_private_key_path" {
-  description = "Chemin vers la clé privée SSH pour se connecter aux nœuds Proxmox"
-  type        = string
-  default     = "~/.ssh/id_rsa"
-}
+# variable "ssh_private_key_path" {
+#   description = "Chemin vers la clé privée SSH pour se connecter aux nœuds Proxmox"
+#   type        = string
+#   default     = "~/.ssh/id_rsa"
+# }
 
-variable "ssh_username" {
-  description = "Nom d'utilisateur SSH pour se connecter aux nœuds Proxmox"
-  type        = string
-  default     = "root"
-}
+# variable "ssh_username" {
+#   description = "Nom d'utilisateur SSH pour se connecter aux nœuds Proxmox"
+#   type        = string
+#   default     = "root"
+# }
 
-variable "node_name" {
-  description = "Nom du nœud Proxmox sur lequel opérer"
-  type        = string
-}
 
-variable "ssh_port" {
-  description = "Port SSH pour se connecter aux nœuds Proxmox"
-  type        = number
-  default     = 22
-}
+# variable "ssh_port" {
+#   description = "Port SSH pour se connecter aux nœuds Proxmox"
+#   type        = number
+#   default     = 22
+# }
 
-variable "proxmox_address" {
-  description = "Adresse IP ou hostname du nœud Proxmox pour la connexion SSH"
-  type        = string
-}
+# variable "proxmox_address" {
+#   description = "Adresse IP ou hostname du nœud Proxmox pour la connexion SSH"
+#   type        = string
+# }
 
-variable "cf_api_token" {
-  description = "Token API Cloudflare"
-  type        = string
-  sensitive   = true
-}
+# variable "cf_api_token" {
+#   description = "Token API Cloudflare"
+#   type        = string
+#   sensitive   = true
+# }
 
 ############################################
 ### Zone SDN VLAN + VNets                 ###

@@ -41,3 +41,46 @@ pa_proxmox_ve_iso_sha256: "4e88fe416df9b527624a175f24c9aa07c714d3332afb1ee3dbf38
 pa_proxmox_ve_iso_url: "https://enterprise.proxmox.com/iso/proxmox-ve_{{ pa_proxmox_ve_version }}.iso"
 pa_proxmox_repo_suite: "trixie"
 pa_docker_context_dir: "{{ playbook_dir }}/../../files/docker/pve-auto-install"
+
+# Token API pour Terraform (moindre privilège, cf. docs/decisions/terraform-token.md)
+pa_terraform_user: "terraform@pve"
+pa_terraform_role_id: "TerraformProvisioner"
+pa_terraform_token_id: "terraform"
+pa_terraform_privileges:
+  - Sys.Audit
+  - Sys.Modify
+  - Permissions.Modify
+  - User.Modify
+  - Group.Allocate
+  # Pools
+  - Pool.Allocate
+  - Pool.Audit
+  # SDN
+  - SDN.Allocate
+  - SDN.Audit
+  - SDN.Use
+  # Stockage (disques, ISO/templates)
+  - Datastore.Audit
+  - Datastore.Allocate
+  - Datastore.AllocateSpace
+  - Datastore.AllocateTemplate
+  # VM / LXC
+  - VM.Allocate
+  - VM.Audit
+  - VM.Clone
+  - VM.Config.CDROM
+  - VM.Config.CPU
+  - VM.Config.Cloudinit
+  - VM.Config.Disk
+  - VM.Config.HWType
+  - VM.Config.Memory
+  - VM.Config.Network
+  - VM.Config.Options
+  - VM.Migrate
+  - VM.PowerMgmt
+  - VM.Console
+  - VM.Snapshot
+pa_terraform_live_dirs:
+  - terraform/live/01-sdn
+  - terraform/live/02-compute
+  - terraform/live/03-ha
