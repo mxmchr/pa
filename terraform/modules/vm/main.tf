@@ -1,35 +1,48 @@
-resource "proxmox_virtual_environment_vm" "debian_clone" {
-  name      = "docker-dev"
-  node_name = "pve-lotus-01"
-  vm_id     = 2001
-  pool_id   = "dev"
+resource "proxmox_virtual_environment_vm" "this" {
+  name      = var.name
+  node_name = var.node_name
+  vm_id     = var.vm_id
+  pool_id   = var.pool_id
+
+  tags = var.tags
 
   clone {
-    vm_id = 9001
+    vm_id = var.clone_vm_id
   }
 
   agent {
     enabled = true
   }
 
-  memory {
-    dedicated = 2048
+  cpu {
+    cores   = var.cores
+    sockets = var.sockets
+    type    = var.cpu_type
+  }
 
+  memory {
+    dedicated = var.memory_size
+  }
+
+  disk {
+    datastore_id = var.datastore_id
+    size         = var.disk_size
+    interface    = "scsi0"
   }
 
   initialization {
-    datastore_id = "local-lvm"
+    datastore_id = var.datastore_id
     interface    = "ide0"
 
     dns {
-      domain = "h.lotuslazer.fr"
-      servers = ["10.0.10.5"]
+      domain  = var.dns_domain
+      servers = var.dns_servers
     }
 
     ip_config {
       ipv4 {
-        address = "dhcp"
-
+        address = var.ipv4_address
+        gateway = var.ipv4_gateway
       }
     }
 
@@ -40,17 +53,17 @@ resource "proxmox_virtual_environment_vm" "debian_clone" {
       password = random_password.root_password.result
     }
   }
-  
-  keyboard_layout = "fr"
-  machine = "q35"
+
+  keyboard_layout = var.keyboard_layout
+  machine         = var.machine
 
   network_device {
-    bridge      = "SRV"
-    mac_address = null
+    bridge      = var.network_bridge
+    mac_address = var.mac_address
     model       = "virtio"
   }
 
-  on_boot = false
+  on_boot = var.on_boot
 
   operating_system {
     type = "l26"
@@ -59,13 +72,10 @@ resource "proxmox_virtual_environment_vm" "debian_clone" {
   scsi_hardware = "virtio-scsi-single"
 
   startup {
-    order      = 3
-    up_delay   = 0
-    down_delay = 0
+    order      = var.startup_order
+    up_delay   = var.startup_up_delay
+    down_delay = var.startup_down_delay
   }
-
-  tablet_device = false
-  tags = []
 
   stop_on_destroy  = true
   purge_on_destroy = true
@@ -74,11 +84,10 @@ resource "proxmox_virtual_environment_vm" "debian_clone" {
     random_password.root_password,
     tls_private_key.root_key
   ]
-
 }
 
 resource "random_password" "root_password" {
-  length           = 20
+  length           = var.root_password_length
   override_special = "_%@"
   special          = true
 }
@@ -86,6 +95,11 @@ resource "random_password" "root_password" {
 resource "tls_private_key" "root_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
+}
+
+output "vm_id" {
+  description = "L'ID de la VM créée."
+  value       = proxmox_virtual_environment_vm.this.vm_id
 }
 
 output "root_password" {
