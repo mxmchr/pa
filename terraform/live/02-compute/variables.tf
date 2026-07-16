@@ -110,3 +110,45 @@ variable "lxcs" {
     startup_order = optional(number, "2")
   }))
 }
+
+############################################
+### VM                                    ###
+############################################
+
+variable "vms" {
+  description = "Définition des VM QEMU"
+  type = map(object({
+    name        = string
+    node_name   = optional(string, "pve1")
+    vm_id       = optional(number, null)
+    vm_pool_id  = optional(string, null)
+    tags        = optional(list(string), [])
+
+    clone_vm_id = number
+
+    cores    = optional(number, 1)
+    sockets  = optional(number, 1)
+    cpu_type = optional(string, "x86-64-v2-AES")
+
+    memory_size = optional(number, 2048)
+
+    hostname    = string
+    dns_domain  = optional(string, "pa.lan")
+    dns_servers = optional(list(string), ["10.0.10.5"])
+
+    network_bridge = string
+    mac_address    = optional(string, null)
+    ipv4_address   = optional(string, "dhcp")
+    ipv4_gateway   = optional(string, null)
+
+    datastore_id = optional(string, "local-lvm")
+    disk_size    = optional(number, 8)
+
+    keyboard_layout = optional(string, "fr")
+    machine         = optional(string, "q35")
+    on_boot         = optional(bool, true)
+
+    startup_order = optional(number, 3)
+  }))
+  default = {}
+}
