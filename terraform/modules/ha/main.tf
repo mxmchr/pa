@@ -15,7 +15,7 @@ resource "proxmox_hagroup" "this" {
   comment     = each.value.comment
 }
 
-resource "proxmox_virtual_environment_haresource" "this" {
+resource "proxmox_haresource" "this" {
   for_each = var.ha_resources
 
   resource_id  = local.ha_resource_ids[each.key]
