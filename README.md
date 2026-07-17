@@ -126,6 +126,56 @@ regénération après modification d'un `answer.toml`.
 Graver/monter chaque ISO sur son serveur, démarrer dessus (installation 100% automatique). Puis déployer
 l'accès SSH :
 
+Sur le poste de contrôle :
+
+```bash
+ssh-keygen \
+  -t ed25519 \
+  -f ~/.ssh/proxmox_iac \
+  -C "proxmox-iac"
+```
+
+Ne pas définir de passphrase si la clé doit être utilisée automatiquement
+par Ansible.
+
+---
+
+## Installation de la clé sur les nœuds Proxmox
+
+Copier la clé publique sur chaque serveur :
+
+```bash
+ssh-copy-id \
+  -i ~/.ssh/proxmox_iac.pub \
+  root@pve1
+
+ssh-copy-id \
+  -i ~/.ssh/proxmox_iac.pub \
+  root@pve2
+
+ssh-copy-id \
+  -i ~/.ssh/proxmox_iac.pub \
+  root@pve3
+```
+
+Tester :
+
+```bash
+ssh -i ~/.ssh/proxmox_iac root@pve1
+ssh -i ~/.ssh/proxmox_iac root@pve2
+ssh -i ~/.ssh/proxmox_iac root@pve3
+```
+
+La connexion SSH doit fonctionner sans demander de mot de passe avant de
+lancer Ansible.
+
+La clé utilisée peut être définie dans `ansible.cfg` :
+
+```ini
+[defaults]
+private_key_file = ~/.ssh/proxmox_iac
+```
+
 ```bash
 ssh-copy-id root@172.16.255.11
 ssh-copy-id root@172.16.255.12
