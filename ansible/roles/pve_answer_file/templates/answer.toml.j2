@@ -11,7 +11,7 @@ source = "from-answer"
 cidr = "{{ pve_node_ip }}/{{ pa_mgmt_prefix }}"
 dns = "{{ pa_mgmt_dns }}"
 gateway = "{{ pa_mgmt_gateway }}"
-filter.ID_NET_NAME_MAC = "enx{{ pve_macs.mgmt | replace(':', '') | lower }}"
+filter.ID_NET_NAME_MAC = "enx{{ pve_nics.mgmt[0] | replace(':', '') | lower }}"
 
 [disk-setup]
 filesystem = "{{ pa_disk_filesystem }}"
