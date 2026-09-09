@@ -1,5 +1,6 @@
 resource "proxmox_virtual_environment_role" "role_storage" {
   role_id = local.role_id_storage
+
   privileges = [
     "Datastore.Audit",
     "Datastore.Allocate",
@@ -8,8 +9,9 @@ resource "proxmox_virtual_environment_role" "role_storage" {
   ]
 }
 
-resource "proxmox_virtual_environment_role" "role_netork" {
+resource "proxmox_virtual_environment_role" "role_network" {
   role_id = local.role_id_network
+
   privileges = [
     "SDN.Audit",
     "SDN.Use",
@@ -19,6 +21,7 @@ resource "proxmox_virtual_environment_role" "role_netork" {
 
 resource "proxmox_virtual_environment_role" "role_pool" {
   role_id = local.role_id_pool
+
   privileges = [
     "VM.Allocate",
     "VM.Clone",
@@ -36,38 +39,29 @@ resource "proxmox_virtual_environment_role" "role_pool" {
   ]
 }
 
-
 resource "proxmox_virtual_environment_group" "group" {
   group_id = var.pool
   comment  = "Managed by Terraform"
 
   acl {
     path      = "/pool/${var.pool}"
-    role_id  = proxmox_virtual_environment_role.role_pool.role_id
+    role_id   = proxmox_virtual_environment_role.role_pool.role_id
     propagate = true
   }
 
-  acl {
-    path      = "/sdn/zones/${var.pool}"
-    role_id  = proxmox_virtual_environment_role.role_netork.role_id
-    propagate = true
+  dynamic "acl" {
+    for_each = toset(var.storage_paths)
+
+    content {
+      path      = "/storage/${acl.value}"
+      role_id   = proxmox_virtual_environment_role.role_storage.role_id
+      propagate = true
+    }
   }
 
   acl {
-    path      = "/storage/local"
-    role_id  = proxmox_virtual_environment_role.role_storage.role_id
-    propagate = true
-  }
-
-  acl {
-    path      = "/storage/local-lvm"
-    role_id  = proxmox_virtual_environment_role.role_storage.role_id
-    propagate = true
-  }
-
-  acl {
-    path      = "/storage/USB_Storage"
-    role_id  = proxmox_virtual_environment_role.role_storage.role_id
+    path      = "/sdn/zones/${upper(var.sdn_zone_id)}"
+    role_id   = proxmox_virtual_environment_role.role_network.role_id
     propagate = true
   }
 }

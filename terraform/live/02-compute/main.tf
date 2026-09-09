@@ -1,8 +1,9 @@
-# NB d'ordre d'apply : la zone SDN (terraform/live/01-sdn) doit être
-# appliquée avant ce root module, car les LXC/VM référencent les bridges
-# (network_bridge) créés par la fabric. Terraform ne peut pas exprimer de
-# dépendance inter-state automatique ici (state séparé = isolation voulue) ;
-# c'est une contrainte d'ordonnancement à respecter côté pipeline/CI.
+locals {
+  lxc_defaults = {
+    datastore_id = var.shared_datastore_id
+    dns_servers  = var.dns_servers_default
+  }
+}
 
 module "pool" {
   source = "../../modules/pool"
@@ -38,7 +39,8 @@ module "lxc" {
 
   hostname    = each.value.hostname
   dns_domain  = each.value.dns_domain
-  dns_servers = each.value.dns_servers
+  dns_servers  = coalesce(each.value.dns_servers, local.lxc_defaults.dns_servers)
+  nesting      = each.value.nesting
 
   network_interface_name = each.value.network_interface_name
   network_bridge          = each.value.network_bridge
@@ -46,7 +48,7 @@ module "lxc" {
   ipv4_address             = each.value.ipv4_address
   ipv4_gateway             = each.value.ipv4_gateway
 
-  datastore_id = each.value.datastore_id
+  datastore_id = coalesce(each.value.datastore_id, local.lxc_defaults.datastore_id)
   disk_size    = each.value.disk_size
 
   template_file_id = each.value.template_file_id
@@ -79,14 +81,14 @@ module "vm" {
 
   hostname    = each.value.hostname
   dns_domain  = each.value.dns_domain
-  dns_servers = each.value.dns_servers
+  dns_servers  = coalesce(each.value.dns_servers, local.lxc_defaults.dns_servers)
 
   network_bridge = each.value.network_bridge
   mac_address    = each.value.mac_address
   ipv4_address   = each.value.ipv4_address
   ipv4_gateway   = each.value.ipv4_gateway
 
-  datastore_id = each.value.datastore_id
+  datastore_id = coalesce(each.value.datastore_id, local.lxc_defaults.datastore_id)
   disk_size    = each.value.disk_size
 
   keyboard_layout = each.value.keyboard_layout

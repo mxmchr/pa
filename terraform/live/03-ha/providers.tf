@@ -8,17 +8,4 @@ terraform {
   }
 }
 
-provider "proxmox" {
-
-  # ssh {
-  #   username    = var.ssh_username
-  #   private_key = file(var.ssh_private_key_path)
-  #   agent       = false
-
-  #   node {
-  #     name    = var.node_name
-  #     address = var.proxmox_address
-  #     port    = var.ssh_port
-  #   }
-  # }
-}
+provider "proxmox" {}

@@ -195,6 +195,12 @@ variable "root_password_length" {
   }
 }
 
+variable "wait_for_ip" {
+  description = "Attendre l'attribution d'une IP avant de considérer le conteneur comme déployé."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Liste des tags à appliquer au conteneur."
   type        = list(string)
@@ -204,5 +210,5 @@ variable "tags" {
 locals {
   unprivileged       = true
   protection_enabled = false
-  wait_for_ipv4      = true
+  wait_for_ipv4 = var.wait_for_ip && var.ipv4_address == "dhcp"
 }
