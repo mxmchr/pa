@@ -1,0 +1,33 @@
+---
+- name: "Déployer les .link de {{ net_item.key }}"
+  ansible.builtin.template:
+    src: nic.link.j2
+    dest: "/etc/systemd/network/10-{{ net_item.value.ifname }}p{{ idx }}.link"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ pve_nics[net_item.key] }}"
+  loop_control:
+    loop_var: mac
+    index_var: idx
+    label: "{{ net_item.value.ifname }}p{{ idx }} <- {{ mac }}"
+  vars:
+    net: "{{ net_item.value }}"
+    usage: "{{ net_item.key }}"
+  notify: update initramfs
+
+- name: "Renommer à chaud les interfaces de {{ net_item.key }}"
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      ip link set dev "{{ pa_mac_to_iface[mac | lower] }}" down
+      ip link set dev "{{ pa_mac_to_iface[mac | lower] }}" name "{{ net_item.value.ifname }}p{{ idx }}"
+  loop: "{{ pve_nics[net_item.key] }}"
+  loop_control:
+    loop_var: mac
+    index_var: idx
+    label: "{{ pa_mac_to_iface[mac | lower] }} -> {{ net_item.value.ifname }}p{{ idx }}"
+  when:
+    - pa_network_live_rename | bool
+    - pa_mac_to_iface[mac | lower] != net_item.value.ifname ~ 'p' ~ idx
+  changed_when: true

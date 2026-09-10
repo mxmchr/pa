@@ -1,0 +1,9 @@
+---
+pa_network_bond_mode: active-backup
+pa_network_bond_miimon: 100
+pa_network_bond_lacp_rate: fast
+pa_network_bond_xmit_hash_policy: layer3+4
+
+pa_network_mtu: 1500
+
+pa_network_live_rename: true
