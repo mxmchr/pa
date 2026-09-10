@@ -1,5 +1,5 @@
 ---
-pve_node_name: pve2
+pve_node_name: pve3
 pve_node_ip: 172.16.255.13
 
 pve_nics:

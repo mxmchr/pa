@@ -69,10 +69,11 @@
 
 - name: Déployer les .link et renommer les interfaces
   ansible.builtin.include_tasks: links.yml
-  loop: "{{ pa_networks | dict2items | rejectattr('value.managed', 'equalto', false) | list }}"
+  loop: "{{ pa_networks | dict2items }}"
   loop_control:
     loop_var: net_item
     label: "{{ net_item.key }}"
+  when: net_item.value.managed | default(true)
 
 - name: Supprimer les fichiers de conf issus de l'ancien découpage du rôle
   ansible.builtin.file:
@@ -100,6 +101,7 @@
   ansible.builtin.setup:
     gather_subset:
       - network
+  when: not ansible_check_mode
 
 - name: Vérifier l'adressage des réseaux statiques
   ansible.builtin.assert:
@@ -113,17 +115,24 @@
       ({{ item.value.prefix }}.{{ pve_node_ip.split('.')[3] }})
       sur {{ inventory_hostname }}
     quiet: true
-  loop: "{{ pa_networks | dict2items
-            | selectattr('value.mode', 'defined')
-            | selectattr('value.mode', 'equalto', 'static') | list }}"
+  loop: "{{ pa_networks | dict2items }}"
   loop_control:
     label: "{{ item.value.ifname }}"
+  when:
+    - not ansible_check_mode
+    - item.value.managed | default(true)
+    - item.value.mode | default('manual') == 'static'
 
 - name: Vérifier que chaque bond a un lien actif
   ansible.builtin.slurp:
     src: "/sys/class/net/{{ item.value.ifname }}/bonding/active_slave"
   register: pa_bond_active
-  loop: "{{ pa_networks | dict2items | rejectattr('value.managed', 'equalto', false) | list }}"
+  loop: "{{ pa_networks | dict2items }}"
   loop_control:
     label: "{{ item.value.ifname }}"
-  failed_when: (pa_bond_active.content | b64decode | trim) | length == 0
+  when:
+    - item.value.managed | default(true)
+    - not ansible_check_mode
+  failed_when:
+    - not (pa_bond_active is skipped)
+    - (pa_bond_active.content | default('') | b64decode | trim) | length == 0
