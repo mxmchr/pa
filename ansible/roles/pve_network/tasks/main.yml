@@ -1,54 +1,129 @@
 ---
-# Interfaces réseau dédiées : ceph_public, ceph_cluster, corosync.
-# sdn_trunk reste géré côté Terraform SDN.
 
-- name: Déployer la configuration de l'interface Corosync
+- name: Vérifier que chaque usage déclaré a des MAC en inventaire
+  ansible.builtin.assert:
+    that:
+      - item.key in pve_nics
+      - pve_nics[item.key] | length >= 1
+    fail_msg: "pve_nics.{{ item.key }} manquant ou vide sur {{ inventory_hostname }}"
+    quiet: true
+  loop: "{{ pa_networks | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Vérifier qu'aucune MAC n'est déclarée pour deux usages
+  ansible.builtin.assert:
+    that: _macs | length == _macs | unique | length
+    fail_msg: "Une même MAC est déclarée pour plusieurs usages sur {{ inventory_hostname }}"
+    quiet: true
+  vars:
+    _macs: "{{ pve_nics.values() | list | flatten | map('lower') | list }}"
+
+- name: Vérifier le format des MAC déclarées
+  ansible.builtin.assert:
+    that: item | lower is match('^([0-9a-f]{2}:){5}[0-9a-f]{2}$')
+    fail_msg: "MAC invalide dans pve_nics : {{ item }}"
+    quiet: true
+  loop: "{{ pve_nics.values() | list | flatten }}"
+
+- name: Vérifier que les noms d'interface tiennent dans la limite du noyau
+  ansible.builtin.assert:
+    that: (item.value.ifname | length) <= 13
+    fail_msg: >-
+      pa_networks.{{ item.key }}.ifname trop long : le suffixe pN porte le
+      nom à plus de 15 caractères, limite du noyau.
+    quiet: true
+  loop: "{{ pa_networks | dict2items }}"
+  loop_control:
+    label: "{{ item.value.ifname }}"
+
+- name: Interdire 802.3ad sur un usage à un seul lien
+  ansible.builtin.assert:
+    that: pve_nics[item.key] | length >= 2
+    fail_msg: "pa_networks.{{ item.key }} : bond_mode 802.3ad avec un seul lien"
+    quiet: true
+  loop: "{{ pa_networks | dict2items | selectattr('value.bond_mode', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: item.value.bond_mode == '802.3ad'
+
+
+- name: Construire la table MAC -> nom d'interface actuel
+  ansible.builtin.set_fact:
+    pa_mac_to_iface: >-
+      {{ dict(_ifaces | map('extract', ansible_facts, 'macaddress')
+                      | map('default', '', true) | map('lower') | list
+              | zip(_ifaces)) }}
+  vars:
+    _ifaces: "{{ ansible_facts.interfaces | reject('equalto', 'lo') | list }}"
+
+- name: Vérifier que toutes les MAC déclarées existent sur la machine
+  ansible.builtin.assert:
+    that: item | lower in pa_mac_to_iface
+    fail_msg: >-
+      MAC {{ item }} introuvable sur {{ inventory_hostname }}.
+      Interfaces vues : {{ pa_mac_to_iface.values() | join(', ') }}
+    quiet: true
+  loop: "{{ pve_nics.values() | list | flatten }}"
+
+
+- name: Déployer les .link et renommer les interfaces
+  ansible.builtin.include_tasks: links.yml
+  loop: "{{ pa_networks | dict2items | rejectattr('value.managed', 'equalto', false) | list }}"
+  loop_control:
+    loop_var: net_item
+    label: "{{ net_item.key }}"
+
+- name: Supprimer les fichiers de conf issus de l'ancien découpage du rôle
+  ansible.builtin.file:
+    path: "/etc/network/interfaces.d/{{ item }}"
+    state: absent
+  loop:
+    - corosync.cfg
+    - ceph.cfg
+  notify: ifreload
+
+- name: Déployer la configuration des interfaces
   ansible.builtin.template:
-    src: corosync-interfaces.cfg.j2
-    dest: /etc/network/interfaces.d/corosync.cfg
+    src: interfaces.cfg.j2
+    dest: /etc/network/interfaces.d/pa-networks.cfg
     owner: root
     group: root
     mode: "0644"
   notify: ifreload
 
-- name: Déployer la configuration des interfaces Ceph
-  ansible.builtin.template:
-    src: ceph-interfaces.cfg.j2
-    dest: /etc/network/interfaces.d/ceph.cfg
-    owner: root
-    group: root
-    mode: "0644"
-  notify: ifreload
-
-- name: Flush handlers pour activer les interfaces avant la suite
+- name: Appliquer la configuration réseau avant la suite du playbook
   ansible.builtin.meta: flush_handlers
 
-- name: Vérifier que l'interface corosync est up
-  ansible.builtin.command: "ip -4 addr show enx{{ pve_macs.corosync | replace(':', '') | lower }}"
-  register: corosync_iface
-  changed_when: false
 
-- name: Vérifier que l'interface ceph_public est up
-  ansible.builtin.command: "ip -4 addr show enx{{ pve_macs.ceph_public | replace(':', '') | lower }}"
-  register: ceph_public_iface
-  changed_when: false
+- name: Relire l'état réseau après application
+  ansible.builtin.setup:
+    gather_subset:
+      - network
 
-- name: Vérifier que l'interface ceph_cluster est up
-  ansible.builtin.command: "ip -4 addr show enx{{ pve_macs.ceph_cluster | replace(':', '') | lower }}"
-  register: ceph_cluster_iface
-  changed_when: false
-
-- name: Assert - IP bien présente sur corosync
+- name: Vérifier l'adressage des réseaux statiques
   ansible.builtin.assert:
-    that: "pa_corosync_prefix in corosync_iface.stdout"
-    fail_msg: "L'interface corosync n'a pas l'IP attendue sur {{ inventory_hostname }}"
+    that:
+      - ansible_facts[item.value.ifname] is defined
+      - ansible_facts[item.value.ifname].ipv4 is defined
+      - ansible_facts[item.value.ifname].ipv4.address
+        == item.value.prefix ~ '.' ~ pve_node_ip.split('.')[3]
+    fail_msg: >-
+      {{ item.value.ifname }} n'a pas l'adresse attendue
+      ({{ item.value.prefix }}.{{ pve_node_ip.split('.')[3] }})
+      sur {{ inventory_hostname }}
+    quiet: true
+  loop: "{{ pa_networks | dict2items
+            | selectattr('value.mode', 'defined')
+            | selectattr('value.mode', 'equalto', 'static') | list }}"
+  loop_control:
+    label: "{{ item.value.ifname }}"
 
-- name: Assert - IP bien présente sur ceph_public
-  ansible.builtin.assert:
-    that: "pa_ceph_public_prefix in ceph_public_iface.stdout"
-    fail_msg: "L'interface ceph_public n'a pas l'IP attendue sur {{ inventory_hostname }}"
-
-- name: Assert - IP bien présente sur ceph_cluster
-  ansible.builtin.assert:
-    that: "pa_ceph_cluster_prefix in ceph_cluster_iface.stdout"
-    fail_msg: "L'interface ceph_cluster n'a pas l'IP attendue sur {{ inventory_hostname }}"
+- name: Vérifier que chaque bond a un lien actif
+  ansible.builtin.slurp:
+    src: "/sys/class/net/{{ item.value.ifname }}/bonding/active_slave"
+  register: pa_bond_active
+  loop: "{{ pa_networks | dict2items | rejectattr('value.managed', 'equalto', false) | list }}"
+  loop_control:
+    label: "{{ item.value.ifname }}"
+  failed_when: (pa_bond_active.content | b64decode | trim) | length == 0

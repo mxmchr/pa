@@ -1,4 +1,12 @@
 ---
 - name: ifreload
-  ansible.builtin.command: ifreload -a
+  ansible.builtin.command:
+    cmd: ifreload -a
+  changed_when: true
   listen: ifreload
+
+- name: update initramfs
+  ansible.builtin.command:
+    cmd: update-initramfs -u
+  changed_when: true
+  listen: update initramfs
