@@ -28,12 +28,9 @@ resource "proxmox_sdn_subnet" "this" {
   dns_zone_prefix = each.value.subnet.dns_zone_prefix
   snat            = each.value.subnet.snat
 
-  dynamic "dhcp_range" {
-    for_each = each.value.subnet.dhcp_ranges
-    content {
-      start_address = dhcp_range.value.start
-      end_address   = dhcp_range.value.end
-    }
+  dhcp_range = {
+    start_address = each.value.subnet.dhcp_range.start
+    end_address   = each.value.subnet.dhcp_range.end
   }
 }
 
