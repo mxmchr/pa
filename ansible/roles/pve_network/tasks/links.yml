@@ -26,8 +26,9 @@
   loop_control:
     loop_var: mac
     index_var: idx
-    label: "{{ pa_mac_to_iface[mac | lower] }} -> {{ net_item.value.ifname }}p{{ idx }}"
+    label: "{{ pa_mac_to_iface[mac | lower] | default('?') }} -> {{ net_item.value.ifname }}p{{ idx }}"
   when:
     - pa_network_live_rename | bool
-    - pa_mac_to_iface[mac | lower] != net_item.value.ifname ~ 'p' ~ idx
+    - (net_item.value.ifname ~ 'p' ~ idx) not in ansible_facts.interfaces
+    - pa_mac_to_iface[mac | lower] is defined
   changed_when: true

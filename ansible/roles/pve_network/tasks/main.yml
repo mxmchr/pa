@@ -48,14 +48,26 @@
   when: item.value.bond_mode == '802.3ad'
 
 
-- name: Construire la table MAC -> nom d'interface actuel
+- name: Lister les noms d'interfaces logiques gérés par le rôle
+  ansible.builtin.set_fact:
+    pa_logical_ifaces: >-
+      {{ (pa_networks.values() | map(attribute='ifname') | list)
+         + (pa_networks.values() | selectattr('bridge_name', 'defined')
+            | map(attribute='bridge_name') | list) }}
+
+- name: Construire la table MAC -> nom d'interface physique actuel
   ansible.builtin.set_fact:
     pa_mac_to_iface: >-
       {{ dict(_ifaces | map('extract', ansible_facts, 'macaddress')
                       | map('default', '', true) | map('lower') | list
               | zip(_ifaces)) }}
   vars:
-    _ifaces: "{{ ansible_facts.interfaces | reject('equalto', 'lo') | list }}"
+    _ifaces: >-
+      {{ ansible_facts.interfaces
+         | reject('equalto', 'lo')
+         | difference(pa_logical_ifaces)
+         | reject('match', '^(vmbr|bond|tap|veth|fwbr|fwln|fwpr)')
+         | list }}
 
 - name: Vérifier que toutes les MAC déclarées existent sur la machine
   ansible.builtin.assert:
