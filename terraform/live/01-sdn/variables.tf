@@ -42,6 +42,7 @@ variable "sdn_zone" {
       adm = { tag = 40, subnet = { cidr = "10.0.40.0/24", gateway = "10.0.40.1" } }
       bck = { tag = 50, subnet = { cidr = "10.0.50.0/24", gateway = "10.0.50.1" } }
       dev = { tag = 60, subnet = { cidr = "10.0.60.0/24", gateway = "10.0.60.1" } }
+      pub = { tag = 70, subnet = { cidr = "10.0.70.0/24", gateway = "10.0.70.1" } }
     }
   }
 }
