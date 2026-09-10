@@ -3,7 +3,6 @@ resource "proxmox_sdn_zone_vlan" "this" {
   bridge = var.sdn_bridge
   mtu    = var.mtu
   ipam   = var.ipam
-  depends_on = [proxmox_sdn_applier.finalizer]
 }
 
 resource "proxmox_sdn_vnet" "this" {
@@ -30,23 +29,23 @@ resource "proxmox_sdn_subnet" "this" {
   snat            = each.value.subnet.snat
 }
 
-resource "proxmox_sdn_applier" "subnet_applier" {
-  count = var.apply_changes ? 1 : 0
+resource "terraform_data" "sdn_fingerprint" {
+  input = sha256(jsonencode({
+    zone   = { id = local.sdn_id_upper, bridge = var.sdn_bridge, mtu = var.mtu, ipam = var.ipam }
+    vnets  = var.vnets
+  }))
+}
 
-  lifecycle {
-    replace_triggered_by = [
-      proxmox_sdn_zone_vlan.this,
-      proxmox_sdn_vnet.this,
-      proxmox_sdn_subnet.this,
-    ]
-  }
+resource "proxmox_sdn_applier" "this" {
+  count = var.apply_changes ? 1 : 0
 
   depends_on = [
     proxmox_sdn_zone_vlan.this,
     proxmox_sdn_vnet.this,
     proxmox_sdn_subnet.this,
   ]
-}
 
-resource "proxmox_sdn_applier" "finalizer" {
+  lifecycle {
+    replace_triggered_by = [terraform_data.sdn_fingerprint]
+  }
 }
