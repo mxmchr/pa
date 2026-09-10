@@ -1,0 +1,45 @@
+# Managed by Ansible (role pve_network) - ne pas modifier a la main
+{% for usage, net in pa_networks | dictsort %}
+{% if net.managed | default(true) %}
+{% set macs = pve_nics[usage] %}
+{% set mtu = net.mtu | default(pa_network_mtu) %}
+{% set bond_mode = net.bond_mode | default(pa_network_bond_mode) %}
+{% set mode = net.mode | default('manual') %}
+{% set slaves = [] %}
+{% for mac in macs %}{% set _ = slaves.append(net.ifname ~ 'p' ~ loop.index0) %}{% endfor %}
+
+### {{ usage }} - {{ macs | length }} lien(s) - {{ bond_mode }}
+{% for slave in slaves %}
+auto {{ slave }}
+iface {{ slave }} inet manual
+    mtu {{ mtu }}
+
+{% endfor %}
+auto {{ net.ifname }}
+{% if mode == 'static' %}
+iface {{ net.ifname }} inet static
+    address {{ net.prefix }}.{{ pve_node_ip.split('.')[3] }}/{{ net.prefix_len }}
+{% else %}
+iface {{ net.ifname }} inet manual
+{% endif %}
+    bond-slaves {{ slaves | join(' ') }}
+    bond-mode {{ bond_mode }}
+    bond-miimon {{ pa_network_bond_miimon }}
+{% if bond_mode == '802.3ad' %}
+    bond-xmit-hash-policy {{ pa_network_bond_xmit_hash_policy }}
+    bond-lacp-rate {{ pa_network_bond_lacp_rate }}
+{% endif %}
+    mtu {{ mtu }}
+{% if mode == 'bridge' %}
+
+auto {{ net.bridge_name }}
+iface {{ net.bridge_name }} inet manual
+    bridge-ports {{ net.ifname }}
+    bridge-stp off
+    bridge-fd 0
+    bridge-vlan-aware yes
+    bridge-vids 2-4094
+    mtu {{ mtu }}
+{% endif %}
+{% endif %}
+{% endfor %}
