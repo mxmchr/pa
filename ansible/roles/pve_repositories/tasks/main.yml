@@ -71,3 +71,14 @@
   environment:
     DEBIAN_FRONTEND: noninteractive
     APT_LISTCHANGES_FRONTEND: none
+
+- name: Installer dnsmasq, prérequis du DHCP intégré au SDN
+  ansible.builtin.apt:
+    name: "dnsmasq"
+    state: present
+
+- name: Désactiver le service dnsmasq par défaut
+  ansible.builtin.systemd_service:
+    name: dnsmasq
+    enabled: false
+    state: stopped

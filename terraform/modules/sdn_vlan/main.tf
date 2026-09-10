@@ -3,6 +3,8 @@ resource "proxmox_sdn_zone_vlan" "this" {
   bridge = var.sdn_bridge
   mtu    = var.mtu
   ipam   = var.ipam
+
+  depends_on = [proxmox_sdn_applier.finalizer]
 }
 
 resource "proxmox_sdn_vnet" "this" {
