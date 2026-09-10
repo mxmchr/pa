@@ -1,60 +1,4 @@
 ############################################
-###           Connexion Proxmox          ###
-############################################
-
-# variable "proxmox_api_url" {
-#   description = "URL de l'API Proxmox"
-#   type        = string
-# }
-
-# variable "proxmox_api_token_id" {
-#   description = "ID du token API Proxmox"
-#   type        = string
-# }
-
-# variable "proxmox_api_token_secret" {
-#   description = "Secret du token API Proxmox"
-#   type        = string
-#   sensitive   = true
-# }
-
-# variable "proxmox_tls_insecure" {
-#   description = "Désactive la vérification TLS (non recommandé en prod)"
-#   type        = bool
-#   default     = false
-# }
-
-# variable "ssh_private_key_path" {
-#   description = "Chemin vers la clé privée SSH pour se connecter aux nœuds Proxmox"
-#   type        = string
-#   default     = "~/.ssh/id_rsa"
-# }
-
-# variable "ssh_username" {
-#   description = "Nom d'utilisateur SSH pour se connecter aux nœuds Proxmox"
-#   type        = string
-#   default     = "root"
-# }
-
-
-# variable "ssh_port" {
-#   description = "Port SSH pour se connecter aux nœuds Proxmox"
-#   type        = number
-#   default     = 22
-# }
-
-# variable "proxmox_address" {
-#   description = "Adresse IP ou hostname du nœud Proxmox pour la connexion SSH"
-#   type        = string
-# }
-
-# variable "cf_api_token" {
-#   description = "Token API Cloudflare"
-#   type        = string
-#   sensitive   = true
-# }
-
-############################################
 ### Zone SDN VLAN + VNets                 ###
 ### Plan d'adressage : 10.0.0.0/16, un    ###
 ### /24 par VLAN (LAN=.10, SRV=.20, ...)  ###
@@ -88,7 +32,7 @@ variable "sdn_zone" {
 
   default = {
     sdn_id     = "pa"
-    sdn_bridge = "vmbr0" # TODO: confirmer le bridge lié au NIC sdn_trunk
+    sdn_bridge = "vmbr1"
     apply_changes = true
 
     vnets = {
