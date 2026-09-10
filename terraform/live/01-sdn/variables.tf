@@ -32,7 +32,7 @@ variable "sdn_zone" {
 
   default = {
     sdn_id     = "pa"
-    sdn_bridge = "vmbr0" # TODO: confirmer le bridge lié au NIC sdn_trunk
+    sdn_bridge = "vmbr1"
     apply_changes = true
 
     vnets = {
