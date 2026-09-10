@@ -37,6 +37,10 @@ variable "vnets" {
       dhcp_dns_server = optional(string, null)
       dns_zone_prefix = optional(string, null)
       snat            = optional(bool, null)
+      dhcp_ranges = optional(list(object({
+        start = string
+        end   = string
+      })), [])
     })
   }))
   validation {
@@ -57,3 +61,17 @@ locals {
   vnet_alias    = { for k, _ in var.vnets : k => "VLAN ${local.vnet_id_upper[k]}" }
 }
 
+variable "dhcp" {
+  description = <<-EOT
+    Backend DHCP de la zone ("dnsmasq" ou null). Requis pour que les
+    dhcp_ranges des subnets soient servis : sans backend au niveau zone,
+    les plages sont enregistrées mais aucune adresse n'est distribuée.
+  EOT
+  type        = string
+  default     = "dnsmasq"
+
+  validation {
+    condition     = var.dhcp == null || var.dhcp == "dnsmasq"
+    error_message = "dhcp doit valoir \"dnsmasq\" ou null."
+  }
+}
