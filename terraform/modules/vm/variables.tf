@@ -1,32 +1,101 @@
+############################################
+### Identité                              ###
+############################################
+
 variable "name" {
-  description = "Nom de la VM."
+  description = "Nom de la VM dans Proxmox."
   type        = string
 }
 
 variable "node_name" {
-  description = "Nom du nœud Proxmox sur lequel créer la VM."
+  description = "Nœud Proxmox sur lequel créer la VM."
   type        = string
 }
 
 variable "vm_id" {
-  description = "VMID Proxmox."
+  description = <<-EOT
+    VMID Proxmox, obligatoire. Un identifiant attribué automatiquement
+    varierait d'un déploiement à l'autre et rendrait non reproductible le
+    rattachement HA, qui lit ces identifiants dans le state.
+    Plan d'attribution : docs/architecture/plan-vmid.md
+  EOT
   type        = number
 }
 
 variable "pool_id" {
-  description = "Pool ID"
+  description = "Pool de ressources Proxmox auquel rattacher la VM."
   type        = string
 }
 
-variable "clone_vm_id" {
-  description = "VMID du template à cloner (cloud-init déjà préparé). Ce module ne construit pas de template depuis une image cloud - prérequis à créer une fois en amont (proxmox_virtual_environment_download_file + VM one-shot convertie en template)."
-  type        = number
+variable "tags" {
+  description = "Tags Proxmox appliqués à la VM."
+  type        = list(string)
+  default     = []
 }
 
-variable "cores" {
-  description = "Nombre de vCPU."
+############################################
+### Source du disque                      ###
+############################################
+
+variable "clone_vm_id" {
+  description = <<-EOT
+    VMID du template cloud-init à cloner. Exclusif avec disk_file_id.
+    Le template doit préexister (rôle Ansible pve_vm_template).
+  EOT
   type        = number
-  default     = 1
+  default     = null
+}
+
+variable "disk_file_id" {
+  description = <<-EOT
+    Identifiant Proxmox d'une image disque à importer, par exemple
+    "local:iso/OPNsense-25.1-amd64.img". Exclusif avec clone_vm_id.
+
+    Destiné aux appliances livrées sous forme d'image, qui ne se clonent
+    pas depuis un template cloud-init.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "cdrom_file_id" {
+  description = <<-EOT
+    Identifiant d'une image ISO montée en lecteur optique, utilisée pour
+    injecter une configuration d'amorçage à une appliance.
+    Cf. docs/decisions/opnsense-bootstrap.md
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "datastore_id" {
+  description = <<-EOT
+    Stockage du disque système. Sans défaut volontairement : un stockage
+    local interdit la migration, donc la mise sous gestion HA. La valeur
+    partagée est résolue par le root module (var.shared_datastore_id).
+  EOT
+  type        = string
+}
+
+variable "disk_size" {
+  description = "Taille du disque système (Go). Doit être >= à celle de la source."
+  type        = number
+  default     = 8
+
+  validation {
+    condition     = var.disk_size >= 1
+    error_message = "disk_size doit être >= 1 (Go)."
+  }
+}
+
+############################################
+### Matériel                              ###
+############################################
+
+variable "cores" {
+  description = "Nombre de cœurs par socket."
+  type        = number
+  default     = 2
 }
 
 variable "sockets" {
@@ -47,51 +116,135 @@ variable "memory_size" {
   default     = 2048
 }
 
-variable "hostname" {
-  description = "Hostname (cloud-init)."
+variable "machine" {
+  description = "Type de machine QEMU."
   type        = string
+  default     = "q35"
 }
 
-variable "dns_domain" {
-  description = "Search domain (cloud-init)."
+variable "bios" {
+  description = "Firmware : \"seabios\" ou \"ovmf\"."
   type        = string
-}
-
-variable "dns_servers" {
-  description = "Liste des serveurs DNS (cloud-init)."
-  type        = list(string)
-}
-
-variable "network_bridge" {
-  description = "Bridge Proxmox (ex: vmbr0, SRV, DMZ...)."
-  type        = string
-  default     = "vmbr0"
-}
-
-variable "mac_address" {
-  description = "Adresse MAC de l'interface réseau."
-  type        = string
-  default     = null
+  default     = "seabios"
 
   validation {
-    condition     = var.mac_address == null || can(regex("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$", var.mac_address))
+    condition     = contains(["seabios", "ovmf"], var.bios)
+    error_message = "bios doit valoir \"seabios\" ou \"ovmf\"."
+  }
+}
+
+variable "os_type" {
+  description = <<-EOT
+    Type d'OS déclaré à Proxmox : "l26" pour Linux, "other" pour les
+    systèmes BSD, dont OPNsense.
+  EOT
+  type        = string
+  default     = "l26"
+}
+
+variable "agent_enabled" {
+  description = <<-EOT
+    Active l'attente de l'agent invité. À laisser à false tant que l'agent
+    n'est pas installé dans l'invité : Terraform attendrait sinon un agent
+    qui ne répond jamais, jusqu'au timeout.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "keyboard_layout" {
+  description = "Disposition clavier de la console."
+  type        = string
+  default     = "fr"
+}
+
+############################################
+### Réseau                                ###
+############################################
+
+variable "network_devices" {
+  description = <<-EOT
+    Interfaces réseau, dans l'ordre : la première devient net0, la
+    deuxième net1, etc. L'ordre est significatif et ne doit pas changer
+    sur une VM existante, sous peine de réattribuer les interfaces côté
+    invité.
+
+    Une VM ordinaire n'en déclare qu'une. Le pare-feu inter-zone en porte
+    une par segment, plus l'interface externe.
+
+    vlan_id reste null avec les VNets SDN, le tag étant porté par le VNet
+    lui-même.
+  EOT
+  type = list(object({
+    bridge      = string
+    mac_address = optional(string, null)
+    vlan_id     = optional(number, null)
+    model       = optional(string, "virtio")
+    firewall    = optional(bool, false)
+  }))
+
+  validation {
+    condition     = length(var.network_devices) >= 1
+    error_message = "Au moins une interface réseau est requise."
+  }
+
+  validation {
+    condition = alltrue([
+      for nic in var.network_devices :
+      nic.mac_address == null || can(regex("^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$", nic.mac_address))
+    ])
     error_message = "mac_address doit être null ou au format XX:XX:XX:XX:XX:XX."
   }
 }
 
+############################################
+### Cloud-init                            ###
+############################################
+
+variable "cloud_init" {
+  description = <<-EOT
+    Active l'initialisation cloud-init : lecteur dédié, hostname, DNS,
+    adressage de la première interface, clé et mot de passe générés.
+
+    À désactiver pour une appliance qui porte sa propre configuration
+    (OPNsense) : le lecteur attaché serait ignoré par l'invité, et les
+    identifiants générés n'auraient aucun effet.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "hostname" {
+  description = "Hostname injecté par cloud-init. Sans objet si cloud_init vaut false."
+  type        = string
+  default     = null
+}
+
+variable "dns_domain" {
+  description = "Domaine de recherche injecté par cloud-init."
+  type        = string
+  default     = null
+}
+
+variable "dns_servers" {
+  description = "Résolveurs injectés par cloud-init."
+  type        = list(string)
+  default     = null
+}
+
 variable "ipv4_address" {
-  description = "Adresse IPv4 (ex: 'dhcp' ou '192.168.1.10/24')."
+  description = "Adresse de la première interface (cloud-init) : \"dhcp\" ou CIDR."
   type        = string
   default     = "dhcp"
 
   validation {
     condition     = can(regex("^(dhcp|\\d{1,3}(?:\\.\\d{1,3}){3}/\\d{1,2})$", var.ipv4_address))
-    error_message = "ipv4_address doit être 'dhcp' ou au format CIDR, ex: 192.168.1.10/24."
+    error_message = "ipv4_address doit être 'dhcp' ou au format CIDR, ex: 10.0.20.10/24."
   }
 }
 
 variable "ipv4_gateway" {
-  description = "Passerelle IPv4. Laisser null si DHCP."
+  description = "Passerelle de la première interface (cloud-init). null si DHCP."
   type        = string
   default     = null
 
@@ -101,44 +254,38 @@ variable "ipv4_gateway" {
   }
 }
 
-variable "datastore_id" {
-  description = "Datastore Proxmox pour le disque cloud-init / la conf de la VM."
-  type        = string
-  default     = "local-lvm"
-}
-
-variable "disk_size" {
-  description = "Taille du disque principal (Go). Doit être >= à celle du template source."
+variable "root_password_length" {
+  description = "Longueur du mot de passe généré pour le compte cloud-init."
   type        = number
-  default     = 8
+  default     = 20
+
+  validation {
+    condition     = var.root_password_length >= 20
+    error_message = "root_password_length doit être >= 20."
+  }
 }
 
-variable "keyboard_layout" {
-  description = "Layout clavier."
-  type        = string
-  default     = "fr"
-}
-
-variable "machine" {
-  description = "Type de machine QEMU."
-  type        = string
-  default     = "q35"
-}
+############################################
+### Démarrage                             ###
+############################################
 
 variable "on_boot" {
-  description = "Démarrage automatique de la VM avec le nœud."
+  description = "Démarrage automatique avec le nœud."
   type        = bool
   default     = true
 }
 
 variable "startup_order" {
-  description = "Ordre de démarrage Proxmox."
+  description = <<-EOT
+    Ordre de démarrage Proxmox. Le pare-feu inter-zone porte les
+    passerelles de tous les segments : il démarre en premier (1).
+  EOT
   type        = number
   default     = 3
 }
 
 variable "startup_up_delay" {
-  description = "Délai (secondes) avant de démarrer après l'ordre."
+  description = "Délai (secondes) avant de démarrer après son tour."
   type        = number
   default     = 0
 }
@@ -149,19 +296,20 @@ variable "startup_down_delay" {
   default     = 0
 }
 
-variable "root_password_length" {
-  description = "Longueur du mot de passe généré pour l'utilisateur cloud-init."
-  type        = number
-  default     = 20
+############################################
+### Cohérence                             ###
+############################################
 
-  validation {
-    condition     = var.root_password_length >= 20
-    error_message = "root_password_length doit être >= 20."
+check "disk_source" {
+  assert {
+    condition     = (var.clone_vm_id == null) != (var.disk_file_id == null)
+    error_message = "Renseigner clone_vm_id OU disk_file_id, pas les deux ni aucun."
   }
 }
 
-variable "tags" {
-  description = "Liste des tags à appliquer à la VM."
-  type        = list(string)
-  default     = []
+check "cloud_init_fields" {
+  assert {
+    condition     = !var.cloud_init || var.hostname != null
+    error_message = "hostname est requis lorsque cloud_init est actif."
+  }
 }

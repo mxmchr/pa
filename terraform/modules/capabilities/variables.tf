@@ -4,9 +4,19 @@ variable "pool" {
 }
 
 variable "storage_paths" {
-  description = "Storages sur lesquels le groupe opérateur reçoit les droits."
+  description = "Stockages sur lesquels le groupe opérateur reçoit les droits."
   type        = list(string)
   default     = ["pa-pool", "local"]
+}
+
+variable "sdn_zone_id" {
+  description = <<-EOT
+    Identifiant de la zone SDN sur laquelle porte l'ACL réseau du groupe.
+    Le module sdn_vlan force l'identifiant en majuscules : l'ACL doit donc
+    viser /sdn/zones/<ID en majuscules>, faute de quoi elle ne s'applique
+    à rien.
+  EOT
+  type        = string
 }
 
 locals {
