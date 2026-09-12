@@ -1,0 +1,128 @@
+---
+- name: Vérifier si le template VM existe et est complet
+  ansible.builtin.command:
+    cmd: "qm config {{ pa_vm_template_vmid }}"
+  register: pa_vm_template_check
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+
+- name: Refuser de continuer si la VM existe sans être un template
+  # Un échec en cours de construction laisse une VM incomplète. Sans ce
+  # contrôle, le bloc suivant serait sauté et le template resterait cassé.
+  ansible.builtin.assert:
+    that: "'template: 1' in pa_vm_template_check.stdout"
+    fail_msg: >-
+      La VM {{ pa_vm_template_vmid }} existe mais n'est pas un template :
+      construction probablement interrompue. Purger avec
+      `qm destroy {{ pa_vm_template_vmid }} --purge` avant de relancer.
+    quiet: true
+  when: pa_vm_template_check.rc == 0
+  run_once: true
+
+- name: Construire le template VM
+  when: pa_vm_template_check.rc != 0
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+  block:
+
+    - name: Télécharger l'image cloud Debian
+      ansible.builtin.get_url:
+        url: "{{ pa_vm_template_image_url }}"
+        dest: "{{ pa_vm_template_image_dir }}/{{ pa_vm_template_image_url | basename }}"
+        checksum: "{{ pa_vm_template_image_checksum }}"
+        mode: "0644"
+
+    - name: Créer la VM de base
+      ansible.builtin.command:
+        cmd: >-
+          qm create {{ pa_vm_template_vmid }}
+          --name {{ pa_vm_template_name }}
+          --cores {{ pa_vm_template_cores }}
+          --sockets {{ pa_vm_template_sockets }}
+          --memory {{ pa_vm_template_memory }}
+          --net0 virtio,bridge={{ pa_vm_template_bridge }}
+          --scsihw virtio-scsi-single
+          --ostype l26
+          --machine q35
+          --bios {{ pa_vm_template_bios }}
+          --agent enabled=1
+          --serial0 socket
+      changed_when: true
+
+    - name: Créer le disque EFI
+      ansible.builtin.command:
+        cmd: >-
+          qm set {{ pa_vm_template_vmid }}
+          --efidisk0 {{ pa_vm_template_datastore }}:1,efitype=4m,pre-enrolled-keys=1
+      when: pa_vm_template_bios == 'ovmf'
+      changed_when: true
+
+    - name: Importer et rattacher le disque système
+      ansible.builtin.command:
+        cmd: >-
+          qm set {{ pa_vm_template_vmid }}
+          --scsi0 {{ pa_vm_template_datastore }}:0,import-from={{ pa_vm_template_image_dir }}/{{ pa_vm_template_image_url | basename }},discard=on,iothread=1,ssd=1
+          --boot order=scsi0
+      changed_when: true
+
+    - name: Attacher le disque de configuration cloud-init
+      ansible.builtin.command:
+        cmd: >-
+          qm set {{ pa_vm_template_vmid }}
+          --ide0 {{ pa_vm_template_datastore }}:cloudinit
+      changed_when: true
+
+    - name: Redimensionner le disque système
+      ansible.builtin.command:
+        cmd: "qm resize {{ pa_vm_template_vmid }} scsi0 {{ pa_vm_template_disk_size }}"
+      changed_when: true
+
+    - name: Convertir en template
+      ansible.builtin.command:
+        cmd: "qm template {{ pa_vm_template_vmid }}"
+      changed_when: true
+
+- name: Rafraîchir le catalogue des templates LXC
+  ansible.builtin.command:
+    cmd: pveam update
+  changed_when: false
+
+- name: Lister les templates disponibles au catalogue
+  ansible.builtin.command:
+    cmd: pveam available --section system
+  register: pa_lxc_available
+  changed_when: false
+
+- name: Vérifier que les templates demandés existent au catalogue
+  ansible.builtin.assert:
+    that: item in pa_lxc_available.stdout
+    fail_msg: |-
+      Template '{{ item }}' absent du catalogue.
+      Entrées correspondantes :
+      {{ pa_lxc_available.stdout_lines
+         | select('search', item.split('-')[0]) | list | join('\n') }}
+    quiet: true
+  loop: "{{ pa_lxc_templates }}"
+
+- name: Lister les templates LXC présents sur le nœud
+  ansible.builtin.command:
+    cmd: pveam list local
+  register: pa_lxc_present
+  changed_when: false
+  failed_when: false
+
+- name: Télécharger les templates LXC manquants
+  ansible.builtin.command:
+    cmd: "pveam download local {{ item }}"
+  loop: "{{ pa_lxc_templates }}"
+  when: item not in (pa_lxc_present.stdout | default(''))
+  changed_when: true
+
+- name: Rappeler le VMID du template
+  ansible.builtin.debug:
+    msg: >-
+      Template {{ pa_vm_template_name }} en VMID {{ pa_vm_template_vmid }},
+      à référencer dans clone_vm_id (terraform/live/02-compute).
+  run_once: true

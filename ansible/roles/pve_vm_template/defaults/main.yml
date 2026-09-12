@@ -1,0 +1,21 @@
+---
+pa_vm_template_vmid: 9000
+pa_vm_template_name: debian-13-cloudinit
+
+pa_vm_template_image_url: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-nocloud-amd64.qcow2"
+pa_vm_template_image_checksum: "sha512:e4f716b1fb48be24085c0907bd1a0a31f03b7bf2adfbd46d9f39595a225dc38741a4b5d79910e61fa1d885ac043e5ea0663fe805f26944e1dc1211a3206022c2"
+pa_vm_template_image_dir: /var/lib/vz/template/cache
+
+pa_vm_template_datastore: pa-pool
+
+pa_vm_template_cores: 2
+pa_vm_template_sockets: 1
+pa_vm_template_memory: 2048
+pa_vm_template_disk_size: 8G
+
+pa_vm_template_bridge: vmbr1
+
+pa_vm_template_bios: ovmf
+
+pa_lxc_templates:
+  - debian-13-standard_13.6-1_amd64.tar.zst
