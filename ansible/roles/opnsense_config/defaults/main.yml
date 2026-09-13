@@ -1,0 +1,35 @@
+---
+pa_opnsense_hostname: fw-pa-01
+pa_opnsense_domain: pa.lan
+pa_opnsense_timezone: Europe/Paris
+pa_opnsense_timeservers:
+  - 0.fr.pool.ntp.org
+  - 1.fr.pool.ntp.org
+pa_opnsense_webgui_port: 443
+
+pa_opnsense_dns_forwarders:
+  - 10.0.20.5
+  - 10.0.20.6
+
+pa_opnsense_wan:
+  device: vtnet0
+  ipaddr: "192.168.1.2"
+  subnet: 24
+  gateway: "192.168.1.1"
+
+pa_opnsense_segments:
+  - { name: LAN, device: vtnet1, ipaddr: "10.0.10.1", subnet: 24 }
+  - { name: SRV, device: vtnet2, ipaddr: "10.0.20.1", subnet: 24 }
+  - { name: DMZ, device: vtnet3, ipaddr: "10.0.30.1", subnet: 24 }
+  - { name: ADM, device: vtnet4, ipaddr: "10.0.40.1", subnet: 24 }
+  - { name: BCK, device: vtnet5, ipaddr: "10.0.50.1", subnet: 24 }
+  - { name: DEV, device: vtnet6, ipaddr: "10.0.60.1", subnet: 24 }
+  - { name: PUB, device: vtnet7, ipaddr: "10.0.70.1", subnet: 24 }
+
+pa_opnsense_uuid_group_admins: "{{ (pa_opnsense_hostname ~ '-group-admins') | ansible.builtin.to_uuid }}"
+pa_opnsense_uuid_user_root: "{{ (pa_opnsense_hostname ~ '-user-root') | ansible.builtin.to_uuid }}"
+pa_opnsense_uuid_gateway_wan: "{{ (pa_opnsense_hostname ~ '-gateway-wan') | ansible.builtin.to_uuid }}"
+
+pa_opnsense_root_ssh_key: "{{ lookup('file', '~/.ssh/proxmox_iac.pub') }}"
+pa_opnsense_root_authorizedkeys_b64: "{{ pa_opnsense_root_ssh_key | b64encode }}"
+pa_opnsense_root_password_hash: "{{ vault_opnsense_root_password_hash }}"

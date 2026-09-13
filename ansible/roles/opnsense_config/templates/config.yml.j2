@@ -1,0 +1,161 @@
+<?xml version="1.0"?>
+<opnsense>
+  <theme>opnsense</theme>
+  <system>
+    <optimization>normal</optimization>
+    <hostname>{{ pa_opnsense_hostname }}</hostname>
+    <domain>{{ pa_opnsense_domain }}</domain>
+    <timezone>{{ pa_opnsense_timezone }}</timezone>
+    <timeservers>{{ pa_opnsense_timeservers | join(' ') }}</timeservers>
+    <group uuid="{{ pa_opnsense_uuid_group_admins }}">
+      <gid>1999</gid>
+      <name>admins</name>
+      <scope>system</scope>
+      <description>System Administrators</description>
+      <priv>page-all</priv>
+      <member>0</member>
+      <source_networks/>
+    </group>
+    <user uuid="{{ pa_opnsense_uuid_user_root }}">
+      <uid>0</uid>
+      <name>root</name>
+      <disabled>0</disabled>
+      <scope>system</scope>
+      <expires/>
+      <authorizedkeys>{{ pa_opnsense_root_authorizedkeys_b64 }}</authorizedkeys>
+      <otp_seed/>
+      <shell>/bin/sh</shell>
+      <password>{{ pa_opnsense_root_password_hash }}</password>
+      <pwd_changed_at/>
+      <landing_page/>
+      <comment/>
+      <email/>
+      <apikeys/>
+      <priv/>
+      <language>fr_FR</language>
+      <descr>System Administrator</descr>
+      <dashboard/>
+      <menu_favorites/>
+    </user>
+    <nextuid>2000</nextuid>
+    <nextgid>2000</nextgid>
+    <webgui>
+      <protocol>https</protocol>
+      <ssl-certref/>
+      <port>{{ pa_opnsense_webgui_port }}</port>
+      <ssl-ciphers/>
+      <interfaces/>
+      <compression/>
+      <quietlogin>1</quietlogin>
+      <ssl-hsts>1</ssl-hsts>
+    </webgui>
+    <ssh>
+      <enabled>enabled</enabled>
+      <interfaces/>
+      <port>22</port>
+      <permitrootlogin>1</permitrootlogin>
+      <passwordauth>0</passwordauth>
+    </ssh>
+    <usevirtualterminal>1</usevirtualterminal>
+    <disableconsolemenu>1</disableconsolemenu>
+    <dnsallowoverride>0</dnsallowoverride>
+    <dnslocalhost>1</dnslocalhost>
+    <autologout>60</autologout>
+    <dnsserver>{{ pa_opnsense_dns_forwarders | first }}</dnsserver>
+  </system>
+  <interfaces>
+    <wan>
+      <if>{{ pa_opnsense_wan.device }}</if>
+      <descr>WAN</descr>
+      <enable>1</enable>
+      <lock>1</lock>
+      <spoofmac/>
+{% if pa_opnsense_wan.ipaddr == 'dhcp' %}
+      <ipaddr>dhcp</ipaddr>
+{% else %}
+      <ipaddr>{{ pa_opnsense_wan.ipaddr }}</ipaddr>
+      <subnet>{{ pa_opnsense_wan.subnet }}</subnet>
+      <gateway>WAN_GW</gateway>
+{% endif %}
+      <ipaddrv6/>
+      <subnetv6/>
+      <gatewayv6/>
+      <blockpriv>1</blockpriv>
+      <blockbogons>1</blockbogons>
+    </wan>
+{% for seg in pa_opnsense_segments %}
+    <{{ 'lan' if loop.first else 'opt' ~ loop.index0 }}>
+      <if>{{ seg.device }}</if>
+      <descr>{{ seg.name }}</descr>
+      <enable>1</enable>
+      <lock>1</lock>
+      <spoofmac/>
+      <ipaddr>{{ seg.ipaddr }}</ipaddr>
+      <subnet>{{ seg.subnet }}</subnet>
+    </{{ 'lan' if loop.first else 'opt' ~ loop.index0 }}>
+{% endfor %}
+    <lo0>
+      <internal_dynamic>1</internal_dynamic>
+      <descr>Loopback</descr>
+      <enable>1</enable>
+      <if>lo0</if>
+      <ipaddr>127.0.0.1</ipaddr>
+      <ipaddrv6>::1</ipaddrv6>
+      <subnet>8</subnet>
+      <subnetv6>128</subnetv6>
+      <type>none</type>
+      <virtual>1</virtual>
+    </lo0>
+  </interfaces>
+  <dhcpd/>
+  <dhcpdv6/>
+  <nat>
+    <outbound>
+      <mode>automatic</mode>
+    </outbound>
+  </nat>
+  <filter/>
+  <ntpd>
+    <prefer>{{ pa_opnsense_timeservers | first }}</prefer>
+  </ntpd>
+  <revision>
+    <username>ansible</username>
+    <description>Amorcage genere par le role opnsense_config_seed</description>
+  </revision>
+  <OPNsense>
+{% if pa_opnsense_wan.ipaddr != 'dhcp' %}
+    <Gateways version="1.0.0">
+      <gateway_item uuid="{{ pa_opnsense_uuid_gateway_wan }}">
+        <disabled>0</disabled>
+        <name>WAN_GW</name>
+        <descr>Passerelle par defaut</descr>
+        <interface>wan</interface>
+        <gateway>{{ pa_opnsense_wan.gateway }}</gateway>
+        <defaultgw>1</defaultgw>
+        <ipprotocol>inet</ipprotocol>
+        <fargw>0</fargw>
+        <monitor_disable>1</monitor_disable>
+        <monitor_noroute>0</monitor_noroute>
+        <monitor/>
+        <force_down>0</force_down>
+        <priority>255</priority>
+        <weight>1</weight>
+      </gateway_item>
+    </Gateways>
+{% endif %}
+  </OPNsense>
+  <virtualip version="1.0.1">
+    <vip/>
+  </virtualip>
+  <vlans version="1.0.0"/>
+  <laggs version="1.0.0"/>
+  <bridges version="1.0.0"/>
+  <gifs version="1.0.0"/>
+  <gres version="1.0.0"/>
+  <ppps/>
+  <wireless/>
+  <staticroutes version="1.0.1"/>
+  <ifgroups version="1.0.0"/>
+  <openvpn/>
+  <syslog/>
+</opnsense>
