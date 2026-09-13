@@ -123,14 +123,28 @@ variable "machine" {
 }
 
 variable "bios" {
-  description = "Firmware : \"seabios\" ou \"ovmf\"."
+  description = <<-EOT
+    Firmware : "seabios" ou "ovmf". Défaut à ovmf, le seul template du dépôt
+    étant construit en UEFI avec disque EFI (rôle pve_vm_template) : pousser
+    seabios sur un clone d'un template UEFI empêcherait son démarrage.
+  EOT
   type        = string
-  default     = "seabios"
+  default     = "ovmf"
 
   validation {
     condition     = contains(["seabios", "ovmf"], var.bios)
     error_message = "bios doit valoir \"seabios\" ou \"ovmf\"."
   }
+}
+
+variable "cloud_init_username" {
+  description = <<-EOT
+    Compte créé par cloud-init et porteur de la clé générée. "ansible" plutôt
+    que root : c'est ce compte que l'inventaire de la phase 09 utilisera comme
+    ansible_user, et le provider ne l'inférerait pas.
+  EOT
+  type        = string
+  default     = "ansible"
 }
 
 variable "os_type" {
@@ -312,4 +326,37 @@ check "cloud_init_fields" {
     condition     = !var.cloud_init || var.hostname != null
     error_message = "hostname est requis lorsque cloud_init est actif."
   }
+}
+
+variable "timeout_clone" {
+  description = <<-EOT
+    Délai d'attente de la tâche de clonage, en secondes. Un clone complet de
+    8 Go vers Ceph dépasse largement le défaut du provider sur la maquette.
+  EOT
+  type        = number
+  default     = 5400
+}
+
+variable "timeout_create" {
+  description = "Délai d'attente de la tâche de création, en secondes."
+  type        = number
+  default     = 5400
+}
+
+variable "timeout_stop_vm" {
+  description = "Délai d'attente de l'arrêt, en secondes."
+  type        = number
+  default     = 1800
+}
+
+variable "full_clone" {
+  description = <<-EOT
+    Clone complet (copie intégrale) ou lié (copie sur écriture).
+
+    Le clone lié est quasi instantané et économise l'espace, mais lie le
+    workload au template, qui ne peut alors plus être supprimé. Décisif sur
+    la maquette ; préférer le clone complet en livraison.
+  EOT
+  type        = bool
+  default     = true
 }

@@ -113,7 +113,7 @@ variable "vms" {
     memory_size = optional(number, 2048)
 
     machine       = optional(string, "q35")
-    bios          = optional(string, "seabios")
+    bios          = optional(string, "ovmf")
     os_type       = optional(string, "l26")
     agent_enabled = optional(bool, true)
 
@@ -126,6 +126,7 @@ variable "vms" {
     }))
 
     cloud_init   = optional(bool, true)
+    cloud_init_username = optional(string, "ansible")
     hostname     = optional(string, null)
     dns_domain   = optional(string, "pa.lan")
     dns_servers  = optional(list(string), null)

@@ -29,3 +29,8 @@ output "ssh_public_key" {
   description = "Clé publique correspondante. null pour une appliance."
   value       = var.cloud_init ? tls_private_key.root_key[0].public_key_openssh : null
 }
+
+output "username" {
+  description = "Compte cloud-init, pour génération de l'inventaire Ansible."
+  value       = var.cloud_init ? var.cloud_init_username : null
+}

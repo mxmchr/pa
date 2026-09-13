@@ -89,7 +89,9 @@ module "vm" {
 
   network_devices = each.value.network_devices
 
-  cloud_init   = each.value.cloud_init
+  cloud_init          = each.value.cloud_init
+  cloud_init_username = each.value.cloud_init_username
+  
   hostname     = each.value.hostname
   dns_domain   = each.value.dns_domain
   dns_servers  = coalesce(each.value.dns_servers, var.dns_servers_default)

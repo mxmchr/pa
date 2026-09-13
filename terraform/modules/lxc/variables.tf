@@ -207,6 +207,22 @@ variable "tags" {
   default     = []
 }
 
+variable "timeout_create" {
+  description = <<-EOT
+    Délai d'attente de la tâche de création, en secondes. Le défaut du
+    provider expire avant la fin sur la maquette, où les trois nœuds sont
+    virtualisés et partagent le même disque physique.
+  EOT
+  type        = number
+  default     = 5400
+}
+
+variable "timeout_delete" {
+  description = "Délai d'attente de la tâche de suppression, en secondes."
+  type        = number
+  default     = 3600
+}
+
 locals {
   unprivileged       = true
   protection_enabled = false
