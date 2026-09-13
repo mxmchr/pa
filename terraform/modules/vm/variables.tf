@@ -329,10 +329,7 @@ check "cloud_init_fields" {
 }
 
 variable "timeout_clone" {
-  description = <<-EOT
-    Délai d'attente de la tâche de clonage, en secondes. Un clone complet de
-    8 Go vers Ceph dépasse largement le défaut du provider sur la maquette.
-  EOT
+  description = "Délai d'attente de la tâche de clonage, en secondes."
   type        = number
   default     = 5400
 }

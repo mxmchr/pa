@@ -74,6 +74,9 @@ variable "lxcs" {
 
     nesting = optional(bool, false)
 
+    timeout_create = optional(number, 5400)
+    timeout_delete = optional(number, 3600)
+
     datastore_id     = optional(string, null)
     disk_size        = number
     template_file_id = string
@@ -139,6 +142,10 @@ variable "vms" {
     keyboard_layout = optional(string, "fr")
     on_boot         = optional(bool, true)
     startup_order   = optional(number, 3)
+
+    timeout_clone   = optional(number, 5400)
+    timeout_create  = optional(number, 5400)
+    timeout_stop_vm = optional(number, 1800)
   }))
   default = {}
 }

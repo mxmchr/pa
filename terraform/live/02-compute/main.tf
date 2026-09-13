@@ -56,6 +56,9 @@ module "lxc" {
 
   template_file_id = each.value.template_file_id
 
+  timeout_create = each.value.timeout_create
+  timeout_delete = each.value.timeout_delete
+
   mount_points = each.value.mount_points
 
   startup_order = each.value.startup_order
@@ -104,6 +107,10 @@ module "vm" {
   keyboard_layout = each.value.keyboard_layout
   on_boot         = each.value.on_boot
   startup_order   = each.value.startup_order
+
+  timeout_clone   = each.value.timeout_clone
+  timeout_create  = each.value.timeout_create
+  timeout_stop_vm = each.value.timeout_stop_vm
 
   depends_on = [module.pool]
 }

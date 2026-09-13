@@ -10,6 +10,10 @@ resource "proxmox_virtual_environment_vm" "this" {
   keyboard_layout = var.keyboard_layout
   scsi_hardware   = "virtio-scsi-single"
 
+  timeout_clone   = var.timeout_clone
+  timeout_create  = var.timeout_create
+  timeout_stop_vm = var.timeout_stop_vm
+
   agent {
     enabled = var.agent_enabled
   }
@@ -81,8 +85,6 @@ resource "proxmox_virtual_environment_vm" "this" {
     }
   }
 
-  # L'ordre de la liste fixe l'ordre côté Proxmox : la première interface
-  # devient net0. Ne pas réordonner var.network_devices sur une VM existante.
   dynamic "network_device" {
     for_each = var.network_devices
     content {
@@ -106,8 +108,6 @@ resource "proxmox_virtual_environment_vm" "this" {
   purge_on_destroy = true
 }
 
-# Identifiants générés uniquement avec cloud-init : une appliance porte sa
-# propre configuration et ses propres comptes.
 resource "random_password" "root_password" {
   count = var.cloud_init ? 1 : 0
 
