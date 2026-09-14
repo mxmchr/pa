@@ -105,8 +105,8 @@ variable "vms" {
     vm_pool_id = optional(string, null)
     tags       = optional(list(string), [])
 
-    # Exclusifs : clone d'un template, ou import d'une image d'appliance.
     clone_vm_id   = optional(number, null)
+    full_clone = optional(bool, true)
     disk_file_id  = optional(string, null)
     cdrom_file_id = optional(string, null)
 

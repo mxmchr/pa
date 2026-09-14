@@ -22,12 +22,11 @@ resource "proxmox_virtual_environment_vm" "this" {
     type = var.os_type
   }
 
-  # Clone d'un template cloud-init. Absent lorsque le disque provient d'une
-  # image importée (appliance).
   dynamic "clone" {
     for_each = var.clone_vm_id == null ? [] : [var.clone_vm_id]
     content {
       vm_id = clone.value
+      full  = var.full_clone
     }
   }
 

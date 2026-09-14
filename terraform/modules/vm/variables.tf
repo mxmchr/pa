@@ -163,7 +163,7 @@ variable "agent_enabled" {
     qui ne répond jamais, jusqu'au timeout.
   EOT
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "keyboard_layout" {

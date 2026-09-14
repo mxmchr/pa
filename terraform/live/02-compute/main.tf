@@ -77,6 +77,7 @@ module "vm" {
   tags       = each.value.tags
 
   clone_vm_id   = each.value.clone_vm_id
+  full_clone = each.value.full_clone
   disk_file_id  = each.value.disk_file_id
   cdrom_file_id = each.value.cdrom_file_id
 
