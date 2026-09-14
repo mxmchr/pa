@@ -141,11 +141,16 @@
   register: pa_overview
   changed_when: false
 
-- name: Construire la table description -> configuration
+-- name: Construire la table description -> configuration
   ansible.builtin.set_fact:
     pa_if_config: >-
-      {{ dict(pa_overview.json.rows | map(attribute='description') | list
-              | zip(pa_overview.json.rows | map(attribute='config') | list)) }}
+      {{ dict(_rows | map(attribute='description') | list
+              | zip(_rows | map(attribute='config') | list)) }}
+  vars:
+    _rows: >-
+      {{ pa_overview.json.rows
+         | selectattr('config', 'defined')
+         | selectattr('description', 'defined') | list }}
 
 - name: Récapituler l'adressage restant à poser
   ansible.builtin.debug:
