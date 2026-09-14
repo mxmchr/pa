@@ -13,8 +13,14 @@ variable "opnsense" {
     memory_size = optional(number, 4096)
     disk_size   = optional(number, 20)
 
-    wan_bridge = optional(string, "vmbr0")
-    segment_bridges = optional(list(string), ["LAN", "SRV", "DMZ", "ADM", "BCK", "DEV", "PUB"])
+    wan_bridge      = optional(string, "vmbr0")
+    wan_mac_address = optional(string, null)
+
+    segments = list(object({
+      name        = string
+      bridge      = string
+      mac_address = string
+    }))
 
     iso_file_id = string
   })
@@ -65,13 +71,15 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
   }
 
   network_device {
-    bridge = var.opnsense.wan_bridge
+    bridge      = var.opnsense.wan_bridge
+    mac_address = var.opnsense.wan_mac_address
   }
 
   dynamic "network_device" {
-    for_each = var.opnsense.segment_bridges
+    for_each = var.opnsense.segments
     content {
-      bridge = network_device.value
+      bridge      = network_device.value.bridge
+      mac_address = network_device.value.mac_address
     }
   }
 
@@ -105,4 +113,13 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
 output "opnsense_vm_id" {
   description = "VMID du pare-feu, consommé par terraform/live/03-ha."
   value       = proxmox_virtual_environment_vm.opnsense.vm_id
+}
+
+output "opnsense_segment_macs" {
+  description = <<-EOT
+    Correspondance segment -> MAC, à reporter dans pa_opnsense_segments du
+    rôle Ansible opnsense_network. Les deux dépôts étant sur des machines
+    distinctes, la valeur est recopiée plutôt que partagée.
+  EOT
+  value       = { for s in var.opnsense.segments : s.name => s.mac_address }
 }
