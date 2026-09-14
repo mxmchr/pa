@@ -1,0 +1,7 @@
+---
+- name: Configuration de base des workloads
+  hosts: workloads
+  gather_facts: false
+
+  roles:
+    - workload_base

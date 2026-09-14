@@ -1,0 +1,41 @@
+---
+- name: Relever le MTU courant de l'interface
+  ansible.builtin.command:
+    cmd: "ip -o link show {{ pa_workload_interface }}"
+  register: pa_mtu_current
+  changed_when: false
+
+- name: Déclarer le MTU dans la configuration réseau
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    regexp: '^\s*mtu\s'
+    line: "    mtu {{ pa_workload_mtu }}"
+    insertafter: '^\s*(gateway|address)\s'
+    firstmatch: false
+    owner: root
+    group: root
+    mode: "0644"
+  register: pa_mtu_declared
+
+- name: Appliquer le MTU sans redémarrer
+  ansible.builtin.command:
+    cmd: "ip link set {{ pa_workload_interface }} mtu {{ pa_workload_mtu }}"
+  when: >-
+    pa_mtu_declared is changed
+    or ('mtu ' ~ pa_workload_mtu) not in pa_mtu_current.stdout
+  changed_when: true
+
+- name: Vérifier que le MTU est appliqué
+  ansible.builtin.command:
+    cmd: "ip -o link show {{ pa_workload_interface }}"
+  register: pa_mtu_after
+  changed_when: false
+  failed_when: ('mtu ' ~ pa_workload_mtu) not in pa_mtu_after.stdout
+
+- name: Vérifier qu'un paquet pleine taille passe
+  ansible.builtin.command:
+    cmd: "ping -c1 -W2 -M do -s {{ pa_workload_mtu | int - 28 }} {{ pa_workload_gateway }}"
+  register: pa_mtu_ping
+  changed_when: false
+  failed_when: pa_mtu_ping.rc != 0
+  when: pa_workload_gateway is defined
