@@ -46,9 +46,10 @@ resource "proxmox_virtual_environment_container" "this" {
     }
 
     user_account {
-      keys = [
-        trimspace(tls_private_key.root_key.public_key_openssh)
-      ]
+      keys = concat(
+          [trimspace(tls_private_key.root_key.public_key_openssh)],
+          var.extra_ssh_keys,
+        )
       password = random_password.root_password.result
     }
   }

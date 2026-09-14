@@ -223,6 +223,16 @@ variable "timeout_delete" {
   default     = 3600
 }
 
+variable "extra_ssh_keys" {
+  description = <<-EOT
+    Clés publiques supplémentaires, en plus de celle générée pour ce workload.
+    C'est par l'une d'elles qu'Ansible se connecte : sans clé commune, il
+    faudrait extraire du state une clé privée distincte par hôte.
+  EOT
+  type        = list(string)
+  default     = []
+}
+
 locals {
   unprivileged       = true
   protection_enabled = false

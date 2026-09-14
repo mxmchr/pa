@@ -97,6 +97,7 @@ module "vm" {
   cloud_init_username = each.value.cloud_init_username
   
   hostname     = each.value.hostname
+  extra_ssh_keys = [var.admin_ssh_public_key]
   dns_domain   = each.value.dns_domain
   dns_servers  = coalesce(each.value.dns_servers, var.dns_servers_default)
   ipv4_address = each.value.ipv4_address

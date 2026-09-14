@@ -78,7 +78,10 @@ resource "proxmox_virtual_environment_vm" "this" {
 
       user_account {
         username = var.cloud_init_username
-        keys     = [trimspace(tls_private_key.root_key[0].public_key_openssh)]
+        keys = concat(
+          [trimspace(tls_private_key.root_key[0].public_key_openssh)],
+          var.extra_ssh_keys,
+        )
         password = random_password.root_password[0].result
       }
     }
