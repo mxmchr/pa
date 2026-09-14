@@ -124,13 +124,13 @@
       - ansible_facts[item.value.bond].ipv4.address
         == item.value.prefix ~ '.' ~ pve_node_ip.split('.')[3]
     fail_msg: >-
-      {{ item.value.ifname }} n'a pas l'adresse attendue
+      {{ item.value.bond }} ({{ item.key }}) n'a pas l'adresse attendue
       ({{ item.value.prefix }}.{{ pve_node_ip.split('.')[3] }})
       sur {{ inventory_hostname }}
     quiet: true
   loop: "{{ pa_networks | dict2items }}"
   loop_control:
-    label: "{{ item.value.ifname }}"
+    label: "{{ item.value.bond }} ({{ item.key }})"
   when:
     - not ansible_check_mode
     - item.value.managed | default(true)
@@ -138,14 +138,15 @@
 
 - name: Vérifier que chaque bond a un lien actif
   ansible.builtin.slurp:
-    src: "/sys/class/net/{{ item.value.ifname }}/bonding/active_slave"
+    src: "/sys/class/net/{{ item.value.bond }}/bonding/active_slave"
   register: pa_bond_active
   loop: "{{ pa_networks | dict2items }}"
   loop_control:
-    label: "{{ item.value.ifname }}"
+    label: "{{ item.value.bond }} ({{ item.key }})"
   when:
-    - item.value.managed | default(true)
     - not ansible_check_mode
+    - item.value.managed | default(true)
+    - item.value.bond_mode | default(pa_network_bond_mode) == 'active-backup'
   failed_when:
     - not (pa_bond_active is skipped)
     - (pa_bond_active.content | default('') | b64decode | trim) | length == 0
