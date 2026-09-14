@@ -45,10 +45,18 @@
   loop_control:
     label: "{{ item.name }} (tag {{ item.tag }})"
   when: item.tag | string not in (pa_vlan_before.json.rows | default([]) | map(attribute='tag') | map('string') | list)
-  notify: Reconfigurer les vlan
 
-- name: Appliquer les VLAN avant d'assigner
-  ansible.builtin.meta: flush_handlers
+- name: Appliquer les périphériques VLAN
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_vlan_reconfigure }}"
+    method: POST
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+    body_format: json
+    body: {}
+  changed_when: false
 
 - name: Relire les périphériques VLAN
   ansible.builtin.uri:
@@ -108,14 +116,10 @@
   loop_control:
     label: "{{ item.name }} ({{ _device }})"
   when: _device not in (pa_assign_before.json.rows | default([]) | map(attribute='if') | list)
-  notify: Reconfigurer les assignations
 
 - name: Appliquer les assignations
-  ansible.builtin.meta: flush_handlers
-
-- name: Relire les interfaces assignées
   ansible.builtin.uri:
-    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_search }}"
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_reconfigure }}"
     method: POST
     url_username: "{{ pa_opnsense_api_key }}"
     url_password: "{{ pa_opnsense_api_secret }}"
@@ -123,18 +127,49 @@
     validate_certs: "{{ pa_opnsense_validate_certs }}"
     body_format: json
     body: {}
-  register: pa_assign_after
   changed_when: false
 
-- name: Récapituler l'adressage à poser manuellement
+
+- name: Lire l'état des interfaces
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_overview }}"
+    method: GET
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+  register: pa_overview
+  changed_when: false
+
+- name: Construire la table description -> configuration
+  ansible.builtin.set_fact:
+    pa_if_config: >-
+      {{ dict(pa_overview.json.rows | map(attribute='description') | list
+              | zip(pa_overview.json.rows | map(attribute='config') | list)) }}
+
+- name: Récapituler l'adressage restant à poser
   ansible.builtin.debug:
     msg: >-
-      Interfaces > {{ _ident | upper }} ({{ item.name }}, {{ _device }}) :
-      cocher Enable, IPv4 Static,
-      adresse {{ item.cidr | regex_replace('^(\d+\.\d+\.\d+)\.\d+/\d+$', '\1.1') }}/{{ item.cidr.split('/')[1] }}
+      {{ _name }} ({{ item.cidr }}) : {{ 'conforme' if _cur == _want else
+      'Interfaces > ' ~ _name ~ ' : cocher Enable, IPv4 Static, adresse ' ~ _want }}
   vars:
-    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif.split(' ')[0] }}"
-    _ident: "{{ (pa_assign_after.json.rows | selectattr('if', 'equalto', _device) | first).identifier }}"
+    _name: "{{ pa_opnsense_if_prefix }}{{ item.name }}"
+    _cur: "{{ (pa_if_config[_name].ipaddr | default('')) ~ '/' ~ (pa_if_config[_name].subnet | default('')) }}"
+    _want: "{{ item.cidr | regex_replace('^(\\d+\\.\\d+\\.\\d+)\\.\\d+/(\\d+)$', '\\1.1/\\2') }}"
   loop: "{{ pa_opnsense_segments }}"
   loop_control:
     label: "{{ item.name }}"
+
+- name: Exiger que l'adressage soit conforme
+  ansible.builtin.assert:
+    that: _cur == _want
+    fail_msg: "{{ _name }} : adresse {{ _cur }} au lieu de {{ _want }}."
+    quiet: true
+  vars:
+    _name: "{{ pa_opnsense_if_prefix }}{{ item.name }}"
+    _cur: "{{ (pa_if_config[_name].ipaddr | default('')) ~ '/' ~ (pa_if_config[_name].subnet | default('')) }}"
+    _want: "{{ item.cidr | regex_replace('^(\\d+\\.\\d+\\.\\d+)\\.\\d+/(\\d+)$', '\\1.1/\\2') }}"
+  loop: "{{ pa_opnsense_segments }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: pa_opnsense_require_addressing | bool
