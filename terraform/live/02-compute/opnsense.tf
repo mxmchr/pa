@@ -94,7 +94,7 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
     up_delay = 0
   }
 
-  started = false
+  started = true
 
   timeout_create      = 5400
   timeout_stop_vm     = 1800
