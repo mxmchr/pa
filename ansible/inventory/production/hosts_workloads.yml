@@ -1,0 +1,29 @@
+# Fichier généré par terraform/live/02-compute. Ne pas modifier à la main :
+# toute modification sera écrasée au prochain apply.
+"all":
+  "children":
+    "workloads":
+      "children":
+        "bck":
+          "hosts":
+            "pbs":
+              "ansible_host": "10.0.50.5"
+              "ansible_user": "ansible"
+              "pa_workload_kind": "vm"
+              "pa_workload_vmid": 150
+        "srv":
+          "hosts":
+            "pdns1":
+              "ansible_host": "10.0.20.5"
+              "ansible_user": "root"
+              "pa_workload_kind": "lxc"
+              "pa_workload_vmid": 120
+            "pdns2":
+              "ansible_host": "10.0.20.6"
+              "ansible_user": "root"
+              "pa_workload_kind": "lxc"
+              "pa_workload_vmid": 121
+      "vars":
+        "ansible_ssh_common_args": "-o StrictHostKeyChecking=accept-new"
+        "ansible_ssh_private_key_file": "~/.ssh/proxmox_iac"
+
