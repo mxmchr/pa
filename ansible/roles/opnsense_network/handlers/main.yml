@@ -23,7 +23,7 @@
     body: {}
   listen: Reconfigurer les assignations
 
-  - name: Recharger les interfaces
+- name: Recharger les interfaces
   ansible.builtin.command:
     argv: [/usr/local/sbin/configctl, interface, reconfigure, "{{ item }}"]
   delegate_to: "{{ pa_opnsense_host }}"
