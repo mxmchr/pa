@@ -39,6 +39,13 @@
     group: pdns
     mode: "0640"
 
+- name: Déclarer le backend dans le fichier principal
+  ansible.builtin.lineinfile:
+    path: /etc/powerdns/pdns.conf
+    regexp: '^#?\s*launch='
+    line: "launch="
+  notify: Redémarrer pdns
+
 - name: Configurer le serveur faisant autorité
   ansible.builtin.template:
     src: pdns.conf.j2
@@ -68,6 +75,20 @@
 
 - name: Appliquer la configuration avant d'utiliser l'API
   ansible.builtin.meta: flush_handlers
+
+- name: Vérifier que le serveur faisant autorité écoute
+  ansible.builtin.command:
+    cmd: "ss -ulnp sport = :{{ pa_dns_auth_port }}"
+  register: pa_dns_listen_auth
+  changed_when: false
+  failed_when: "'127.0.0.1:' ~ pa_dns_auth_port not in pa_dns_listen_auth.stdout"
+
+- name: Vérifier que le résolveur écoute sur toutes les interfaces
+  ansible.builtin.command:
+    cmd: "ss -ulnp sport = :{{ pa_dns_recursor_port }}"
+  register: pa_dns_listen_rec
+  changed_when: false
+  failed_when: "'0.0.0.0:' ~ pa_dns_recursor_port not in pa_dns_listen_rec.stdout"
 
 - name: Lister les zones
   ansible.builtin.uri:
