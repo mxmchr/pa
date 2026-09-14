@@ -1,0 +1,11 @@
+{% for src in pa_chrony_sources %}
+pool {{ src }} {{ pa_chrony_options }}
+{% endfor %}
+
+driftfile /var/lib/chrony/chrony.drift
+ntsdumpdir /var/lib/chrony
+logdir /var/log/chrony
+
+makestep {{ pa_chrony_makestep_threshold }} {{ pa_chrony_makestep_limit }}
+rtcsync
+leapsectz right/UTC

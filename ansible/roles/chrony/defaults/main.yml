@@ -1,0 +1,11 @@
+---
+pa_chrony_sources:
+  - "0.debian.pool.ntp.org"
+  - "1.debian.pool.ntp.org"
+  - "2.debian.pool.ntp.org"
+  - "3.debian.pool.ntp.org"
+
+pa_chrony_options: "iburst"
+pa_chrony_makestep_threshold: 1
+pa_chrony_makestep_limit: 3
+pa_chrony_max_offset: 1.0

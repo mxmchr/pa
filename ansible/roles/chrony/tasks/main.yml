@@ -1,0 +1,44 @@
+---
+- name: Installer chrony
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Configurer chrony
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Redémarrer chrony
+
+- name: Activer le service
+  ansible.builtin.systemd_service:
+    name: chrony
+    enabled: true
+    state: started
+
+- name: Appliquer la configuration avant les contrôles
+  ansible.builtin.meta: flush_handlers
+
+- name: Attendre la synchronisation
+  ansible.builtin.command:
+    cmd: chronyc -h 127.0.0.1 waitsync 30 {{ pa_chrony_max_offset }}
+  register: pa_chrony_wait
+  changed_when: false
+  failed_when: pa_chrony_wait.rc != 0
+
+- name: Relever l'état de la synchronisation
+  ansible.builtin.command:
+    cmd: chronyc -h 127.0.0.1 tracking
+  register: pa_chrony_tracking
+  changed_when: false
+
+- name: Vérifier qu'une source est retenue
+  ansible.builtin.assert:
+    that: "'Leap status     : Normal' in pa_chrony_tracking.stdout"
+    fail_msg: "Horloge non synchronisée sur {{ inventory_hostname }} : {{ pa_chrony_tracking.stdout_lines | last }}"
+    quiet: true

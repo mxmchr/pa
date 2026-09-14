@@ -1,0 +1,7 @@
+---
+- name: Synchroniser l'horloge des hyperviseurs et des workloads
+  hosts: proxmox:workloads
+  gather_facts: false
+
+  roles:
+    - chrony

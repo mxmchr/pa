@@ -1,0 +1,6 @@
+---
+- name: Redémarrer chrony
+  ansible.builtin.systemd_service:
+    name: chrony
+    state: restarted
+  listen: Redémarrer chrony
