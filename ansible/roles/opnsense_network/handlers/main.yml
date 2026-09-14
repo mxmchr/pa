@@ -1,0 +1,24 @@
+---
+- name: Reconfigurer les vlan
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_vlan_reconfigure }}"
+    method: POST
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+    body_format: json
+    body: {}
+  listen: Reconfigurer les vlan
+
+- name: Reconfigurer les assignations
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_reconfigure }}"
+    method: POST
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+    body_format: json
+    body: {}
+  listen: Reconfigurer les assignations

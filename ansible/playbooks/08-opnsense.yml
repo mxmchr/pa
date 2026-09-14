@@ -1,0 +1,8 @@
+---
+- name: Configurer le réseau du pare-feu inter-zone
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  roles:
+    - opnsense_network

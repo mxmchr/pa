@@ -1,0 +1,29 @@
+---
+pa_opnsense_url: "https://172.16.255.20"
+pa_opnsense_api_key: "{{ vault_opnsense_api_key }}"
+pa_opnsense_api_secret: "{{ vault_opnsense_api_secret }}"
+pa_opnsense_validate_certs: false
+
+pa_opnsense_ep_vlan_search: "/api/interfaces/vlan_settings/searchItem"
+pa_opnsense_ep_vlan_add: "/api/interfaces/vlan_settings/addItem"
+pa_opnsense_ep_vlan_reconfigure: "/api/interfaces/vlan_settings/reconfigure"
+
+pa_opnsense_ep_assign_search: "/api/interfaces/assignment/search_item"
+pa_opnsense_ep_assign_add: "/api/interfaces/assignment/add_item"
+pa_opnsense_ep_assign_reconfigure: "/api/interfaces/assignment/reconfigure"
+
+# Carte portant le trunk. vtnet0 est l'interface externe, vtnet1 le trunk :
+# l'ordre découle de celui de network_devices dans terraform/live/02-compute.
+pa_opnsense_trunk_device: vtnet1
+
+# Un segment = un VLAN sur le trunk + une interface assignée qui porte le .1.
+# L'adresse est dérivée du CIDR, comme côté SDN, pour qu'une seule source
+# décrive le découpage.
+pa_opnsense_segments:
+  - {name: LAN, tag: 10, cidr: "10.0.10.0/24"}
+  - {name: SRV, tag: 20, cidr: "10.0.20.0/24"}
+  - {name: DMZ, tag: 30, cidr: "10.0.30.0/24"}
+  - {name: ADM, tag: 40, cidr: "10.0.40.0/24"}
+  - {name: BCK, tag: 50, cidr: "10.0.50.0/24"}
+  - {name: DEV, tag: 60, cidr: "10.0.60.0/24"}
+  - {name: PUB, tag: 70, cidr: "10.0.70.0/24"}
