@@ -50,4 +50,3 @@
   failed_when: pa_mtu_ping.rc != 0
   when:
     - pa_workload_kind == 'lxc'
-    - pa_workload_gateway is defined
