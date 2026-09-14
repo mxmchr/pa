@@ -12,6 +12,7 @@
     cmd: "ip -o link show {{ pa_workload_interface }}"
   register: pa_mtu_current
   changed_when: false
+  when: pa_workload_kind == 'lxc'
 
 - name: Déclarer le MTU dans la configuration réseau
   ansible.builtin.lineinfile:
@@ -43,10 +44,10 @@
 
 - name: Vérifier qu'un paquet pleine taille passe
   ansible.builtin.command:
-    cmd: "ping -c1 -W2 -M do -s {{ _payload }} {{ pa_workload_gateway }}"
-  vars:
-    _payload: "{{ ((pa_workload_kind == 'lxc') | ternary(pa_workload_mtu, 1500)) | int - 28 }}"
+    cmd: "ping -c1 -W2 -M do -s {{ pa_workload_mtu | int - 28 }} {{ pa_workload_gateway }}"
   register: pa_mtu_ping
   changed_when: false
   failed_when: pa_mtu_ping.rc != 0
-  when: pa_workload_gateway is defined
+  when:
+    - pa_workload_kind == 'lxc'
+    - pa_workload_gateway is defined
