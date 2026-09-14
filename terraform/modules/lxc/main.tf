@@ -50,10 +50,11 @@ resource "proxmox_virtual_environment_container" "this" {
     }
   }
 
-  network_interface {
+    network_interface {
     name        = var.network_interface_name
     bridge      = var.network_bridge
     mac_address = var.mac_address
+    mtu         = var.mtu
   }
 
   disk {

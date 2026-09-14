@@ -69,8 +69,9 @@ variable "lxcs" {
     network_interface_name = optional(string, "eth0")
     network_bridge         = string
     mac_address            = optional(string, null)
-    ipv4_address     = string
-    ipv4_gateway     = optional(string, null)
+    mtu                    = optional(number, 1450)
+    ipv4_address           = string
+    ipv4_gateway           = optional(string, null)
 
     nesting = optional(bool, true)
 

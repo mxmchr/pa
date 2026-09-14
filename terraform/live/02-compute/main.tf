@@ -45,6 +45,7 @@ module "lxc" {
   network_interface_name = each.value.network_interface_name
   network_bridge         = each.value.network_bridge
   mac_address            = each.value.mac_address
+  mtu                    = each.value.mtu
   ipv4_address           = each.value.ipv4_address
   ipv4_gateway           = each.value.ipv4_gateway
 

@@ -109,6 +109,22 @@ variable "mac_address" {
   }
 }
 
+variable "mtu" {
+  description = <<-EOT
+    MTU de l'interface. 1450 et non 1500 : la zone SDN étant en VXLAN,
+    l'encapsulation coûte 50 octets.
+
+    À 1500, le ping répond et le service écoute, mais tout paquet pleine
+    taille est perdu : l'échange de clés SSH échoue, et Ansible ne parvient
+    pas à transférer ses modules. Le symptôme ne désigne jamais sa cause.
+
+    Proxmox écrit /etc/network/interfaces à la création du conteneur
+    uniquement : modifier cette valeur ensuite impose une recréation.
+  EOT
+  type        = number
+  default     = 1450
+}
+
 variable "ipv4_address" {
   description = "Adresse IPv4 : \"dhcp\" ou CIDR."
   type        = string
