@@ -1,4 +1,9 @@
----
+- name: Relever le résolveur courant
+  ansible.builtin.slurp:
+    src: /etc/resolv.conf
+  register: pa_dns_resolv_current
+  failed_when: false
+
 - name: Poser un résolveur temporaire pour atteindre les dépôts
   ansible.builtin.template:
     src: resolv-bootstrap.conf.j2
@@ -6,6 +11,7 @@
     owner: root
     group: root
     mode: "0644"
+  when: "'nameserver 127.0.0.1' not in (pa_dns_resolv_current.content | default('') | b64decode)"
 
 - name: Installer PowerDNS
   ansible.builtin.apt:
