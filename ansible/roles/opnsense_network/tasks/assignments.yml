@@ -95,7 +95,9 @@
   loop: "{{ pa_opnsense_segments }}"
   loop_control:
     label: "{{ item.name }}"
-
+- name: Afficher la structure renvoyée par get_item
+  ansible.builtin.debug:
+    var: pa_assign_current.results[0].json.interface
 - name: Construire la table nom de segment -> adresse courante
   ansible.builtin.set_fact:
     pa_current_ip: >-
