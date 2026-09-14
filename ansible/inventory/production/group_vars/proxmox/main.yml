@@ -14,28 +14,33 @@ pve_api_password: "{{ vault_pve_root_password }}"
 pa_networks:
   mgmt:
     ifname: mgmt
+    bond: bond0
     managed: false
 
   corosync:
     ifname: csync
+    bond: bond1
     mode: static
     prefix: "172.16.254"
     prefix_len: 24
 
   ceph_public:
     ifname: cephpub
+    bond: bond2
     mode: static
     prefix: "172.16.253"
     prefix_len: 24
 
   ceph_cluster:
     ifname: cephcl
+    bond: bond3
     mode: static
     prefix: "172.16.252"
     prefix_len: 24
 
   sdn_trunk:
     ifname: trunk
+    bond: bond4
     mode: bridge
     bridge_name: vmbr1
 

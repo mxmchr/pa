@@ -119,9 +119,9 @@
 - name: Vérifier l'adressage des réseaux statiques
   ansible.builtin.assert:
     that:
-      - ansible_facts[item.value.ifname] is defined
-      - ansible_facts[item.value.ifname].ipv4 is defined
-      - ansible_facts[item.value.ifname].ipv4.address
+      - ansible_facts[item.value.bond] is defined
+      - ansible_facts[item.value.bond].ipv4 is defined
+      - ansible_facts[item.value.bond].ipv4.address
         == item.value.prefix ~ '.' ~ pve_node_ip.split('.')[3]
     fail_msg: >-
       {{ item.value.ifname }} n'a pas l'adresse attendue

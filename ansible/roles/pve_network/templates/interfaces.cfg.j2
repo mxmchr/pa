@@ -13,12 +13,12 @@ iface {{ slave }} inet manual
     mtu {{ mtu }}
 
 {% endfor %}
-auto {{ net.ifname }}
+auto {{ net.bond }}
 {% if mode == 'static' %}
-iface {{ net.ifname }} inet static
+iface {{ net.bond }} inet static
     address {{ net.prefix }}.{{ pve_node_ip.split('.')[3] }}/{{ net.prefix_len }}
 {% else %}
-iface {{ net.ifname }} inet manual
+iface {{ net.bond }} inet manual
 {% endif %}
     bond-slaves {{ slaves | join(' ') }}
     bond-mode {{ bond_mode }}
@@ -32,7 +32,7 @@ iface {{ net.ifname }} inet manual
 
 auto {{ net.bridge_name }}
 iface {{ net.bridge_name }} inet manual
-    bridge-ports {{ net.ifname }}
+    bridge-ports {{ net.bond }}
     bridge-stp off
     bridge-fd 0
     bridge-vlan-aware yes
