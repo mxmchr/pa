@@ -1,4 +1,25 @@
 ---
+- name: Débloquer le MTU des conteneurs depuis leur nœud
+  hosts: proxmox
+  gather_facts: false
+
+  tasks:
+    - name: Lister les conteneurs du nœud
+      ansible.builtin.command:
+        cmd: pct list
+      register: pa_pct_list
+      changed_when: false
+
+    - name: Aligner le MTU à chaud
+      ansible.builtin.command:
+        cmd: "pct exec {{ item }} -- ip link set eth0 mtu {{ pa_workload_mtu }}"
+      loop: >-
+        {{ pa_pct_list.stdout_lines[1:] | map('split')
+           | selectattr(1, 'equalto', 'running') | map(attribute=0) | list }}
+      loop_control:
+        label: "CT {{ item }}"
+      changed_when: false
+
 - name: Configuration de base des workloads
   hosts: workloads
   gather_facts: false

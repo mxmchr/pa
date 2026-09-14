@@ -11,18 +11,18 @@
     regexp: '^\s*mtu\s'
     line: "    mtu {{ pa_workload_mtu }}"
     insertafter: '^\s*(gateway|address)\s'
-    firstmatch: false
     owner: root
     group: root
     mode: "0644"
   register: pa_mtu_declared
+  when: pa_workload_kind == 'lxc'
 
 - name: Appliquer le MTU sans redémarrer
   ansible.builtin.command:
     cmd: "ip link set {{ pa_workload_interface }} mtu {{ pa_workload_mtu }}"
-  when: >-
-    pa_mtu_declared is changed
-    or ('mtu ' ~ pa_workload_mtu) not in pa_mtu_current.stdout
+  when:
+    - pa_workload_kind == 'lxc'
+    - pa_mtu_declared is changed or ('mtu ' ~ pa_workload_mtu) not in pa_mtu_current.stdout
   changed_when: true
 
 - name: Vérifier que le MTU est appliqué
@@ -31,10 +31,13 @@
   register: pa_mtu_after
   changed_when: false
   failed_when: ('mtu ' ~ pa_workload_mtu) not in pa_mtu_after.stdout
+  when: pa_workload_kind == 'lxc'
 
 - name: Vérifier qu'un paquet pleine taille passe
   ansible.builtin.command:
-    cmd: "ping -c1 -W2 -M do -s {{ pa_workload_mtu | int - 28 }} {{ pa_workload_gateway }}"
+    cmd: "ping -c1 -W2 -M do -s {{ _payload }} {{ pa_workload_gateway }}"
+  vars:
+    _payload: "{{ ((pa_workload_kind == 'lxc') | ternary(pa_workload_mtu, 1500)) | int - 28 }}"
   register: pa_mtu_ping
   changed_when: false
   failed_when: pa_mtu_ping.rc != 0
