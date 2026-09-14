@@ -46,6 +46,15 @@
     line: "launch="
   notify: Redémarrer pdns
 
+- name: Configurer le serveur faisant autorité
+  ansible.builtin.template:
+    src: pdns.conf.j2
+    dest: /etc/powerdns/pdns.d/pa.conf
+    owner: root
+    group: pdns
+    mode: "0640"
+  notify: Redémarrer pdns
+
 - name: Configurer le résolveur
   ansible.builtin.template:
     src: recursor.yml.j2
@@ -59,15 +68,6 @@
   ansible.builtin.file:
     path: /etc/powerdns/recursor.conf
     state: absent
-  notify: Redémarrer pdns-recursor
-
-- name: Configurer le résolveur
-  ansible.builtin.template:
-    src: recursor.conf.j2
-    dest: /etc/powerdns/recursor.conf
-    owner: root
-    group: root
-    mode: "0644"
   notify: Redémarrer pdns-recursor
 
 - name: Activer les services
