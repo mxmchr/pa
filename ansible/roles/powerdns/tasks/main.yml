@@ -39,13 +39,6 @@
     group: pdns
     mode: "0640"
 
-- name: Neutraliser le backend par défaut
-  ansible.builtin.replace:
-    path: /etc/powerdns/pdns.conf
-    regexp: '^(launch=.*)$'
-    replace: '# \1'
-  notify: Redémarrer pdns
-
 - name: Configurer le serveur faisant autorité
   ansible.builtin.template:
     src: pdns.conf.j2
