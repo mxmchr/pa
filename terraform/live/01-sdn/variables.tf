@@ -1,11 +1,11 @@
 variable "sdn_zone" {
   description = <<-EOT
     Zone SDN et ses segments, sous forme courte : un tag et un CIDR par VNet.
-    Passerelle, plage DHCP et résolveur sont dérivés du CIDR dans main.tf.
+    Passerelle et plage DHCP sont dérivées du CIDR dans main.tf.
 
     Zone VXLAN et non VLAN : la maquette est virtualisée sous VMware
     Workstation, qui transporte les trames non étiquetées entre machines mais
-    jette les trames 802.1Q. Diagnostic : docs/decisions/sdn-vxlan.md
+    jette les trames 802.1Q. Cf. docs/decisions/sdn-vxlan.md
   EOT
   type = object({
     sdn_id = string
@@ -26,7 +26,8 @@ variable "sdn_zone" {
     sdn_id = "pa"
 
     peers = ["172.16.251.11", "172.16.251.12", "172.16.251.13"]
-    mtu   = 1450
+
+    mtu = 1450
 
     apply_changes = true
 

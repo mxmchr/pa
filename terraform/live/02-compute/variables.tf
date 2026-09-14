@@ -1,18 +1,37 @@
 ############################################
-### Pool                                  ###
+### Pool et valeurs communes              ###
 ############################################
+# La connexion au cluster vient de PROXMOX_VE_ENDPOINT, PROXMOX_VE_INSECURE et
+# PROXMOX_VE_API_TOKEN, et le backend de AWS_ACCESS_KEY_ID et
+# AWS_SECRET_ACCESS_KEY. Aucune de ces valeurs n'est déclarée ici.
 
 variable "pool_id" {
-  description = "L'ID du pool de ressources Proxmox VE."
+  description = "Pool de ressources Proxmox regroupant les workloads."
   type        = string
   default     = "pa"
 }
 
+variable "sdn_zone_id" {
+  description = <<-EOT
+    Identifiant de la zone SDN créée par terraform/live/01-sdn, repris pour
+    l'ACL du groupe opérateur. Les deux states étant séparés, la valeur est
+    dupliquée volontairement plutôt que lue par terraform_remote_state.
+  EOT
+  type        = string
+  default     = "pa"
+}
+
+variable "storage_paths" {
+  description = "Stockages sur lesquels le groupe opérateur reçoit des droits."
+  type        = list(string)
+  default     = ["pa-pool", "local"]
+}
+
 variable "shared_datastore_id" {
   description = <<-EOT
-    Storage partagé Ceph RBD (créé en phase 04 par `pveceph pool create --add_storages`).
-    Obligatoirement partagé : un workload sur un storage local ne peut pas être
-    migré, donc pas placé sous HA (terraform/live/03-ha).
+    Stockage partagé Ceph RBD, créé en phase 04. Obligatoirement partagé : un
+    workload posé sur un stockage local ne peut pas être migré, donc pas placé
+    sous gestion HA.
   EOT
   type        = string
   default     = "pa-pool"
@@ -24,43 +43,24 @@ variable "dns_servers_default" {
   default     = ["10.0.20.5", "10.0.20.6"]
 }
 
-variable "sdn_zone_id" {
-  description = <<-EOT
-    Identifiant de la zone SDN créée par terraform/live/01-sdn. Repris ici
-    pour l'ACL du groupe opérateur : les deux states étant séparés, la
-    valeur est dupliquée volontairement plutôt que lue par
-    terraform_remote_state, l'isolation important plus que la factorisation
-    d'une chaîne de deux caractères.
-  EOT
-  type        = string
-  default     = "pa"
-}
-
-variable "storage_paths" {
-  description = "Stockages sur lesquels le groupe opérateur reçoit les droits."
-  type        = list(string)
-  default     = ["pa-pool", "local"]
-}
-
 ############################################
-### LXC                                   ###
+### Workloads conteneurisés               ###
 ############################################
 
 variable "lxcs" {
-  description = "Définition des conteneurs LXC"
+  description = "Définition des workloads conteneurisés."
   type = map(object({
     description = optional(string, "Managed by Terraform")
     node_name   = optional(string, "pve1")
-    vm_id       = number                      # <- plus optionnel, cf. A.4
+    vm_id       = number
     lxc_pool_id = optional(string, null)
     tags        = optional(list(string), [])
 
     cores        = optional(number, 1)
     units        = optional(number, 1024)
     architecture = optional(string, "amd64")
-
-    memory_size = number
-    swap_size   = optional(number, 512)
+    memory_size  = number
+    swap_size    = optional(number, 512)
 
     hostname    = string
     dns_domain  = optional(string, "pa.lan")
@@ -69,13 +69,10 @@ variable "lxcs" {
     network_interface_name = optional(string, "eth0")
     network_bridge         = string
     mac_address            = optional(string, null)
-    ipv4_address           = string
-    ipv4_gateway           = optional(string, null)
+    ipv4_address     = string
+    ipv4_gateway     = optional(string, null)
 
     nesting = optional(bool, true)
-
-    timeout_create = optional(number, 5400)
-    timeout_delete = optional(number, 3600)
 
     datastore_id     = optional(string, null)
     disk_size        = number
@@ -84,20 +81,22 @@ variable "lxcs" {
     mount_points = optional(list(object({
       volume = string
       path   = string
-      size   = optional(number)
+      size   = optional(string)
     })), [])
 
-    startup_order = optional(number, 2)
+    startup_order  = optional(number, 2)
+    timeout_create = optional(number, 5400)
+    timeout_delete = optional(number, 3600)
   }))
   default = {}
 }
 
 ############################################
-### VM                                    ###
+### Workloads sur machine virtuelle       ###
 ############################################
 
 variable "vms" {
-  description = "Définition des workloads VM."
+  description = "Définition des workloads sur machine virtuelle."
   type = map(object({
     name       = string
     node_name  = optional(string, "pve1")
@@ -105,8 +104,8 @@ variable "vms" {
     vm_pool_id = optional(string, null)
     tags       = optional(list(string), [])
 
-    # Absent : l'image est importée depuis proxmox_virtual_environment_download_file
-    # (cf. images.tf). disk_file_id ne sert qu'aux appliances.
+    # Absent : l'image est importée depuis le téléchargement déclaré dans
+    # images.tf. disk_file_id ne sert qu'aux appliances.
     disk_file_id  = optional(string, null)
     cdrom_file_id = optional(string, null)
 
@@ -125,8 +124,6 @@ variable "vms" {
       mac_address = optional(string, null)
       vlan_id     = optional(number, null)
       model       = optional(string, "virtio")
-      firewall    = optional(bool, false)
-      mtu         = optional(number, 1450)
     }))
 
     cloud_init          = optional(bool, true)

@@ -28,40 +28,36 @@ module "lxc" {
   description = each.value.description
   node_name   = each.value.node_name
   vm_id       = each.value.vm_id
+  pool_id     = each.value.lxc_pool_id
+  tags        = each.value.tags
 
-  pool_id = each.value.lxc_pool_id
-
-  tags = each.value.tags
-
+  architecture = each.value.architecture
   cores        = each.value.cores
   units        = each.value.units
-  architecture = each.value.architecture
-
-  memory_size = each.value.memory_size
-  swap_size   = each.value.swap_size
+  memory_size  = each.value.memory_size
+  swap_size    = each.value.swap_size
+  nesting      = each.value.nesting
 
   hostname    = each.value.hostname
   dns_domain  = each.value.dns_domain
-  dns_servers  = coalesce(each.value.dns_servers, local.lxc_defaults.dns_servers)
-  nesting      = each.value.nesting
+  dns_servers = coalesce(each.value.dns_servers, var.dns_servers_default)
 
   network_interface_name = each.value.network_interface_name
-  network_bridge          = each.value.network_bridge
-  mac_address              = each.value.mac_address
-  ipv4_address             = each.value.ipv4_address
-  ipv4_gateway             = each.value.ipv4_gateway
+  network_bridge         = each.value.network_bridge
+  mac_address            = each.value.mac_address
+  ipv4_address           = each.value.ipv4_address
+  ipv4_gateway           = each.value.ipv4_gateway
 
-  datastore_id = coalesce(each.value.datastore_id, local.lxc_defaults.datastore_id)
-  disk_size    = each.value.disk_size
-
+  datastore_id     = coalesce(each.value.datastore_id, var.shared_datastore_id)
+  disk_size        = each.value.disk_size
   template_file_id = each.value.template_file_id
+  mount_points     = each.value.mount_points
 
+  extra_ssh_keys = [var.admin_ssh_public_key]
+
+  startup_order  = each.value.startup_order
   timeout_create = each.value.timeout_create
   timeout_delete = each.value.timeout_delete
-
-  mount_points = each.value.mount_points
-
-  startup_order = each.value.startup_order
 
   depends_on = [module.pool]
 }
@@ -76,8 +72,6 @@ module "vm" {
   pool_id   = each.value.vm_pool_id
   tags      = each.value.tags
 
-  # Image importée depuis le téléchargement du nœud qui héberge la VM :
-  # le stockage "local" n'étant pas partagé, chaque nœud a sa copie.
   disk_import_from = each.value.disk_file_id == null ? proxmox_virtual_environment_download_file.debian[each.value.node_name].id : null
   disk_file_id     = each.value.disk_file_id
   cdrom_file_id    = each.value.cdrom_file_id

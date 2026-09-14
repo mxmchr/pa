@@ -3,18 +3,11 @@ resource "proxmox_virtual_environment_container" "this" {
 
   node_name = var.node_name
   vm_id     = var.vm_id
+  pool_id   = var.pool_id
+  tags      = var.tags
 
   unprivileged = local.unprivileged
-
-  pool_id = var.pool_id
-
-  protection = local.protection_enabled
-
-  tags = var.tags
-
-  wait_for_ip {
-    ipv4 = local.wait_for_ipv4
-  }
+  protection   = local.protection_enabled
 
   features {
     nesting = var.nesting
@@ -22,14 +15,15 @@ resource "proxmox_virtual_environment_container" "this" {
 
   cpu {
     architecture = var.architecture
-    cores = var.cores
-    units = var.units
+    cores        = var.cores
+    units        = var.units
   }
 
   memory {
     dedicated = var.memory_size
-    swap = var.swap_size
+    swap      = var.swap_size
   }
+
   initialization {
     hostname = var.hostname
 
@@ -45,11 +39,13 @@ resource "proxmox_virtual_environment_container" "this" {
       }
     }
 
+    # Proxmox écrit authorized_keys à la création du conteneur uniquement :
+    # modifier cette liste impose une recréation.
     user_account {
       keys = concat(
-          [trimspace(tls_private_key.root_key.public_key_openssh)],
-          var.extra_ssh_keys,
-        )
+        [trimspace(tls_private_key.root_key.public_key_openssh)],
+        var.extra_ssh_keys,
+      )
       password = random_password.root_password.result
     }
   }
@@ -66,8 +62,8 @@ resource "proxmox_virtual_environment_container" "this" {
   }
 
   operating_system {
-  template_file_id = (var.template_file_id != null ? var.template_file_id : proxmox_download_file.this[0].id)
-  type             = var.os_type
+    template_file_id = local.template_id
+    type             = var.os_type
   }
 
   dynamic "mount_point" {
@@ -75,7 +71,7 @@ resource "proxmox_virtual_environment_container" "this" {
     content {
       volume = mount_point.value.volume
       path   = mount_point.value.path
-      size   = lookup(mount_point.value, "size", null)
+      size   = mount_point.value.size
     }
   }
 
@@ -85,17 +81,15 @@ resource "proxmox_virtual_environment_container" "this" {
     down_delay = var.startup_down_delay
   }
 
+  wait_for_ip {
+    ipv4 = local.wait_for_ipv4
+  }
+
   timeout_create = var.timeout_create
   timeout_delete = var.timeout_delete
-
-  depends_on = [
-    proxmox_download_file.this,
-    random_password.root_password,
-    tls_private_key.root_key
-  ]                             
 }
 
-resource "proxmox_download_file" "this" {
+resource "proxmox_virtual_environment_download_file" "this" {
   count = var.template_file_id == null ? 1 : 0
 
   content_type = "vztmpl"
@@ -109,7 +103,7 @@ resource "random_password" "root_password" {
   override_special = "_%@"
   special          = true
 }
+
 resource "tls_private_key" "root_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
+  algorithm = "ED25519"
 }
