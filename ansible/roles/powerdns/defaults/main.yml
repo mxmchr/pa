@@ -1,0 +1,48 @@
+---
+pa_dns_zone: "pa.lan"
+pa_dns_api_key: "{{ vault_pdns_api_key }}"
+
+pa_dns_auth_port: 5300
+pa_dns_api_port: 8081
+pa_dns_recursor_port: 53
+
+pa_dns_forwarders:
+  - "1.1.1.1"
+  - "1.0.0.1"
+
+pa_dns_servers:
+  - "10.0.20.5"
+  - "10.0.20.6"
+
+pa_dns_allow_from:
+  - "10.0.0.0/16"
+  - "172.16.0.0/16"
+  - "127.0.0.0/8"
+
+pa_dns_soa_refresh: 10800
+pa_dns_soa_retry: 3600
+pa_dns_soa_expire: 604800
+pa_dns_soa_minimum: 3600
+pa_dns_ttl: 3600
+
+pa_dns_records:
+  - {name: pdns1, ip: "10.0.20.5"}
+  - {name: pdns2, ip: "10.0.20.6"}
+  - {name: smtp, ip: "10.0.20.8"}
+  - {name: openbao, ip: "10.0.20.10"}
+  - {name: authentik, ip: "10.0.20.15"}
+  - {name: traefik, ip: "10.0.20.20"}
+  - {name: gitlab, ip: "10.0.20.30"}
+  - {name: gitlab-runner, ip: "10.0.20.31"}
+  - {name: netbird, ip: "10.0.30.5"}
+  - {name: peer1, ip: "10.0.30.10"}
+  - {name: peer2, ip: "10.0.30.11"}
+  - {name: prometheus, ip: "10.0.40.10"}
+  - {name: grafana, ip: "10.0.40.11"}
+  - {name: alertmanager, ip: "10.0.40.12"}
+  - {name: bastion, ip: "10.0.40.20"}
+  - {name: pbs, ip: "10.0.50.5"}
+  - {name: fw, ip: "10.0.20.1"}
+  - {name: pve1, ip: "172.16.255.11"}
+  - {name: pve2, ip: "172.16.255.12"}
+  - {name: pve3, ip: "172.16.255.13"}

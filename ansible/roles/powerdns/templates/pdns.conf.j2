@@ -1,0 +1,15 @@
+launch=gsqlite3
+gsqlite3-database=/var/lib/powerdns/pdns.sqlite3
+
+local-address=127.0.0.1
+local-port={{ pa_dns_auth_port }}
+
+api=yes
+api-key={{ pa_dns_api_key }}
+webserver=yes
+webserver-address=127.0.0.1
+webserver-port={{ pa_dns_api_port }}
+
+default-soa-content=pdns1.{{ pa_dns_zone }} hostmaster.{{ pa_dns_zone }} 0 {{ pa_dns_soa_refresh }} {{ pa_dns_soa_retry }} {{ pa_dns_soa_expire }} {{ pa_dns_soa_minimum }}
+default-ttl={{ pa_dns_ttl }}
+version-string=anonymous

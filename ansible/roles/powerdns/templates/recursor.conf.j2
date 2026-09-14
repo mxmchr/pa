@@ -1,0 +1,10 @@
+local-address=0.0.0.0
+local-port={{ pa_dns_recursor_port }}
+
+allow-from={{ pa_dns_allow_from | join(',') }}
+
+forward-zones={{ pa_dns_zone }}=127.0.0.1:{{ pa_dns_auth_port }}
+forward-zones-recurse=.={{ pa_dns_forwarders | join(';') }}
+
+dnssec=off
+version-string=anonymous

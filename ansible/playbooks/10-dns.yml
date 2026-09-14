@@ -1,0 +1,7 @@
+---
+- name: Déployer la résolution de noms
+  hosts: dns
+  gather_facts: true
+
+  roles:
+    - powerdns

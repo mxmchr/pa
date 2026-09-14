@@ -1,0 +1,180 @@
+---
+- name: Poser un résolveur temporaire pour atteindre les dépôts
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    pa_dns_resolv_servers: "{{ pa_dns_forwarders }}"
+
+- name: Installer PowerDNS
+  ansible.builtin.apt:
+    name:
+      - pdns-server
+      - pdns-backend-sqlite3
+      - pdns-recursor
+      - sqlite3
+      - dnsutils
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Vérifier la présence de la base
+  ansible.builtin.stat:
+    path: /var/lib/powerdns/pdns.sqlite3
+  register: pa_dns_db
+
+- name: Créer la base et son schéma
+  ansible.builtin.shell:
+    cmd: >-
+      sqlite3 /var/lib/powerdns/pdns.sqlite3
+      < /usr/share/pdns-backend-sqlite3/schema/schema.sqlite3.sql
+    creates: /var/lib/powerdns/pdns.sqlite3
+  when: not pa_dns_db.stat.exists
+
+- name: Donner la base au service
+  ansible.builtin.file:
+    path: /var/lib/powerdns/pdns.sqlite3
+    owner: pdns
+    group: pdns
+    mode: "0640"
+
+- name: Neutraliser le backend par défaut
+  ansible.builtin.replace:
+    path: /etc/powerdns/pdns.conf
+    regexp: '^(launch=.*)$'
+    replace: '# \1'
+  notify: Redémarrer pdns
+
+- name: Configurer le serveur faisant autorité
+  ansible.builtin.template:
+    src: pdns.conf.j2
+    dest: /etc/powerdns/pdns.d/pa.conf
+    owner: root
+    group: pdns
+    mode: "0640"
+  notify: Redémarrer pdns
+
+- name: Configurer le résolveur
+  ansible.builtin.template:
+    src: recursor.conf.j2
+    dest: /etc/powerdns/recursor.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Redémarrer pdns-recursor
+
+- name: Activer les services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - pdns
+    - pdns-recursor
+
+- name: Appliquer la configuration avant d'utiliser l'API
+  ansible.builtin.meta: flush_handlers
+
+- name: Lister les zones
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_dns_api_port }}/api/v1/servers/localhost/zones"
+    method: GET
+    headers:
+      X-API-Key: "{{ pa_dns_api_key }}"
+  register: pa_dns_zones
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: pa_dns_zones is succeeded
+
+- name: Créer la zone interne
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_dns_api_port }}/api/v1/servers/localhost/zones"
+    method: POST
+    headers:
+      X-API-Key: "{{ pa_dns_api_key }}"
+    body_format: json
+    body:
+      name: "{{ pa_dns_zone }}."
+      kind: "Native"
+      nameservers:
+        - "pdns1.{{ pa_dns_zone }}."
+        - "pdns2.{{ pa_dns_zone }}."
+    status_code: [201]
+  when: (pa_dns_zone ~ '.') not in (pa_dns_zones.json | map(attribute='name') | list)
+
+- name: Lire la zone
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_dns_api_port }}/api/v1/servers/localhost/zones/{{ pa_dns_zone }}."
+    method: GET
+    headers:
+      X-API-Key: "{{ pa_dns_api_key }}"
+  register: pa_dns_zone_get
+  changed_when: false
+
+- name: Construire les enregistrements voulus
+  ansible.builtin.set_fact:
+    pa_dns_rrsets: >-
+      {{ (pa_dns_rrsets | default([])) + [{
+           'name': item.name ~ '.' ~ pa_dns_zone ~ '.',
+           'type': 'A',
+           'ttl': pa_dns_ttl,
+           'changetype': 'REPLACE',
+           'records': [{'content': item.ip, 'disabled': false}]
+         }] }}
+  loop: "{{ pa_dns_records }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.ip }}"
+
+- name: Projeter l'état courant et l'état voulu
+  ansible.builtin.set_fact:
+    pa_dns_current: >-
+      {{ dict(_a | map(attribute='name') | list
+              | zip(_a | map(attribute='records') | map('first') | map(attribute='content') | list)) }}
+    pa_dns_wanted: >-
+      {{ dict(pa_dns_rrsets | map(attribute='name') | list
+              | zip(pa_dns_rrsets | map(attribute='records') | map('first') | map(attribute='content') | list)) }}
+  vars:
+    _a: >-
+      {{ pa_dns_zone_get.json.rrsets | selectattr('type', 'equalto', 'A')
+         | selectattr('records') | list }}
+
+- name: Déclarer les enregistrements
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_dns_api_port }}/api/v1/servers/localhost/zones/{{ pa_dns_zone }}."
+    method: PATCH
+    headers:
+      X-API-Key: "{{ pa_dns_api_key }}"
+    body_format: json
+    body:
+      rrsets: "{{ pa_dns_rrsets }}"
+    status_code: [204]
+  when: pa_dns_current != pa_dns_wanted
+  changed_when: true
+
+- name: Basculer le résolveur du workload sur lui-même
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    pa_dns_resolv_servers: "{{ ['127.0.0.1'] + (pa_dns_servers | difference([ansible_host])) }}"
+
+- name: Vérifier la résolution interne
+  ansible.builtin.command:
+    cmd: "dig +short +time=2 +tries=1 @127.0.0.1 pdns1.{{ pa_dns_zone }}"
+  register: pa_dns_check_internal
+  changed_when: false
+  failed_when: pa_dns_check_internal.stdout | trim != pa_dns_servers[0]
+
+- name: Vérifier la résolution externe
+  ansible.builtin.command:
+    cmd: "dig +short +time=3 +tries=2 @127.0.0.1 debian.org A"
+  register: pa_dns_check_external
+  changed_when: false
+  failed_when: pa_dns_check_external.stdout | trim | length == 0

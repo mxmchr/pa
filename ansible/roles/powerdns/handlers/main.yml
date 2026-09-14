@@ -1,0 +1,12 @@
+---
+- name: Redémarrer pdns
+  ansible.builtin.systemd_service:
+    name: pdns
+    state: restarted
+  listen: Redémarrer pdns
+
+- name: Redémarrer pdns-recursor
+  ansible.builtin.systemd_service:
+    name: pdns-recursor
+    state: restarted
+  listen: Redémarrer pdns-recursor
