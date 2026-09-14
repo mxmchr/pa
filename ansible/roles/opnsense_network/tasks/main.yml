@@ -141,7 +141,7 @@
   register: pa_overview
   changed_when: false
 
--- name: Construire la table description -> configuration
+- name: Construire la table description -> configuration
   ansible.builtin.set_fact:
     pa_if_config: >-
       {{ dict(_rows | map(attribute='description') | list
