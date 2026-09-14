@@ -97,9 +97,9 @@
     body:
       interface:
         if: "{{ _device }}"
-        descr: "{{ item.name }}"
+        descr: "{{ pa_opnsense_if_prefix }}{{ item.name }}"
   vars:
-    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif }}"
+    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif.split(' ')[0] }}"
   register: pa_assign_add
   failed_when:
     - pa_assign_add.json.result is defined
@@ -133,7 +133,7 @@
       cocher Enable, IPv4 Static,
       adresse {{ item.cidr | regex_replace('^(\d+\.\d+\.\d+)\.\d+/\d+$', '\1.1') }}/{{ item.cidr.split('/')[1] }}
   vars:
-    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif }}"
+    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif.split(' ')[0] }}"
     _ident: "{{ (pa_assign_after.json.rows | selectattr('if', 'equalto', _device) | first).identifier }}"
   loop: "{{ pa_opnsense_segments }}"
   loop_control:

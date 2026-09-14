@@ -13,6 +13,7 @@ pa_opnsense_ep_assign_add: "/api/interfaces/assignment/add_item"
 pa_opnsense_ep_assign_reconfigure: "/api/interfaces/assignment/reconfigure"
 
 pa_opnsense_trunk_device: vtnet1
+pa_opnsense_if_prefix: "VLAN_"
 
 pa_opnsense_segments:
   - {name: LAN, tag: 10, cidr: "10.0.10.0/24"}
