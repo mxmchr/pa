@@ -46,10 +46,7 @@ locals {
 
   workload_segments = distinct([for h in local.workload_hosts : h.segment])
 
-  # Structure sérialisée par yamlencode plutôt que rendue par templatefile :
-  # les marqueurs de suppression d'espaces des templates Terraform retirent
-  # aussi le saut de ligne précédent, ce qui produisait un YAML invalide.
-  workload_inventory = {
+    workload_inventory = {
     all = {
       children = {
         workloads = {
@@ -58,13 +55,12 @@ locals {
             ansible_ssh_common_args      = "-o StrictHostKeyChecking=accept-new"
           }
           children = {
-            # Le groupe est déduit du bridge, donc du segment : il permet
-            # d'attacher des variables par segment côté Ansible.
             for segment in local.workload_segments : segment => {
               hosts = {
                 for h in local.workload_hosts : h.name => {
                   ansible_host     = h.address
                   ansible_user     = h.user
+                  ansible_become   = h.kind == "vm"
                   pa_workload_vmid = h.vm_id
                   pa_workload_kind = h.kind
                 } if h.segment == segment

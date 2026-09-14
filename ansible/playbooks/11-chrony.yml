@@ -1,7 +1,8 @@
 ---
-- name: Synchroniser l'horloge des hyperviseurs et des workloads
+- name: Synchroniser l'horloge des hyperviseurs et des machines virtuelles
   hosts: proxmox:workloads
   gather_facts: false
 
   roles:
-    - chrony
+    - role: chrony
+      when: pa_workload_kind | default('vm') != 'lxc'
