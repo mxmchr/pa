@@ -87,22 +87,23 @@
     label: "{{ net_item.key }}"
   when: net_item.value.managed | default(true)
 
-- name: Supprimer les fichiers de conf issus de l'ancien découpage du rôle
+- name: Retirer l'ancien fichier de configuration hors du fichier principal
   ansible.builtin.file:
     path: "/etc/network/interfaces.d/{{ item }}"
     state: absent
   loop:
+    - pa-networks.cfg
     - corosync.cfg
     - ceph.cfg
   notify: ifreload
 
 - name: Déployer la configuration des interfaces
-  ansible.builtin.template:
-    src: interfaces.cfg.j2
-    dest: /etc/network/interfaces.d/pa-networks.cfg
-    owner: root
-    group: root
-    mode: "0644"
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - role pve_network"
+    insertbefore: "^source /etc/network/interfaces.d"
+    block: "{{ lookup('template', 'interfaces.cfg.j2') }}"
+    backup: true
   notify: ifreload
 
 - name: Appliquer la configuration réseau avant la suite du playbook

@@ -1,4 +1,3 @@
-# Managed by Ansible (role pve_network) - ne pas modifier a la main
 {% for usage, net in pa_networks | dictsort %}
 {% if net.managed | default(true) %}
 {% set macs = pve_nics[usage] %}
@@ -7,7 +6,6 @@
 {% set mode = net.mode | default('manual') %}
 {% set slaves = [] %}
 {% for mac in macs %}{% set _ = slaves.append(net.ifname ~ 'p' ~ loop.index0) %}{% endfor %}
-
 ### {{ usage }} - {{ macs | length }} lien(s) - {{ bond_mode }}
 {% for slave in slaves %}
 auto {{ slave }}
@@ -41,5 +39,6 @@ iface {{ net.bridge_name }} inet manual
     bridge-vids 2-4094
     mtu {{ mtu }}
 {% endif %}
+
 {% endif %}
 {% endfor %}
