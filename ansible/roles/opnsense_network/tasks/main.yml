@@ -50,5 +50,5 @@
 - name: Appliquer les VLAN avant d'assigner
   ansible.builtin.meta: flush_handlers
 
-- name: Assigner les VLAN à des interfaces
-  ansible.builtin.include_tasks: assignments.yml
+- name: Adresser les interfaces
+  ansible.builtin.include_tasks: addressing.yml

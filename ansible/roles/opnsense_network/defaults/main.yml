@@ -3,6 +3,7 @@ pa_opnsense_url: "https://172.16.255.20"
 pa_opnsense_api_key: "{{ vault_opnsense_api_key }}"
 pa_opnsense_api_secret: "{{ vault_opnsense_api_secret }}"
 pa_opnsense_validate_certs: false
+pa_opnsense_host: fw-pa-01
 
 pa_opnsense_ep_vlan_search: "/api/interfaces/vlan_settings/searchItem"
 pa_opnsense_ep_vlan_add: "/api/interfaces/vlan_settings/addItem"

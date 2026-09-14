@@ -1,136 +1,45 @@
 ---
 
-- name: Relire les périphériques VLAN
-  ansible.builtin.uri:
-    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_vlan_search }}"
-    method: POST
-    url_username: "{{ pa_opnsense_api_key }}"
-    url_password: "{{ pa_opnsense_api_secret }}"
-    force_basic_auth: true
-    validate_certs: "{{ pa_opnsense_validate_certs }}"
-    body_format: json
-    body: {}
-  register: pa_vlan_all
-  changed_when: false
-
-- name: Vérifier que chaque segment a son périphérique VLAN
-  ansible.builtin.assert:
-    that: pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | list | length == 1
-    fail_msg: >-
-      Aucun périphérique VLAN pour {{ item.name }} (tag {{ item.tag }}).
-      Exécuter d'abord la partie VLAN du rôle.
-    quiet: true
-  loop: "{{ pa_opnsense_segments }}"
-  loop_control:
-    label: "{{ item.name }}"
-
-- name: Lister les interfaces déjà assignées
-  ansible.builtin.uri:
-    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_search }}"
-    method: POST
-    url_username: "{{ pa_opnsense_api_key }}"
-    url_password: "{{ pa_opnsense_api_secret }}"
-    force_basic_auth: true
-    validate_certs: "{{ pa_opnsense_validate_certs }}"
-    body_format: json
-    body: {}
-  register: pa_assign_before
-  changed_when: false
-
-- name: Assigner les périphériques VLAN non encore assignés
-  ansible.builtin.uri:
-    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_add }}"
-    method: POST
-    url_username: "{{ pa_opnsense_api_key }}"
-    url_password: "{{ pa_opnsense_api_secret }}"
-    force_basic_auth: true
-    validate_certs: "{{ pa_opnsense_validate_certs }}"
-    body_format: json
-    body:
-      interface:
-        if: "{{ _device }}"
-        descr: "{{ item.name }}"
-    status_code: [200]
-  vars:
-    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif }}"
-  register: pa_assign_add
-  failed_when:
-    - pa_assign_add.json.result is defined
-    - pa_assign_add.json.result not in ['saved', 'ok']
-  loop: "{{ pa_opnsense_segments }}"
-  loop_control:
-    label: "{{ item.name }} ({{ _device }})"
-  when: _device not in (pa_assign_before.json.rows | default([]) | map(attribute='if') | list)
-  notify: Reconfigurer les assignations
-
-- name: Appliquer les assignations avant l'adressage
-  ansible.builtin.meta: flush_handlers
-
-- name: Relire les interfaces pour récupérer leurs uuid
-  ansible.builtin.uri:
-    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_search }}"
-    method: POST
-    url_username: "{{ pa_opnsense_api_key }}"
-    url_password: "{{ pa_opnsense_api_secret }}"
-    force_basic_auth: true
-    validate_certs: "{{ pa_opnsense_validate_certs }}"
-    body_format: json
-    body: {}
-  register: pa_assign_after
-  changed_when: false
-
-- name: Lire l'adressage courant de chaque interface
-  ansible.builtin.uri:
-    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_get }}/{{ _row.uuid }}"
-    method: GET
-    url_username: "{{ pa_opnsense_api_key }}"
-    url_password: "{{ pa_opnsense_api_secret }}"
-    force_basic_auth: true
-    validate_certs: "{{ pa_opnsense_validate_certs }}"
-  vars:
-    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif }}"
-    _row: "{{ pa_assign_after.json.rows | selectattr('if', 'equalto', _device) | first }}"
-  register: pa_assign_current
-  changed_when: false
-  loop: "{{ pa_opnsense_segments }}"
-  loop_control:
-    label: "{{ item.name }}"
-- name: Afficher la structure renvoyée par get_item
-  ansible.builtin.debug:
-    var: pa_assign_current.results[0].json.interface
-- name: Construire la table nom de segment -> adresse courante
+- name: Construire la table périphérique -> identifiant optN
   ansible.builtin.set_fact:
-    pa_current_ip: >-
-      {{ dict(pa_assign_current.results | map(attribute='item.name') | list
-              | zip(pa_assign_current.results | map(attribute='json.interface.ipaddr') | list)) }}
+    pa_device_to_ident: >-
+      {{ dict(pa_assign_after.json.rows | map(attribute='if') | list
+              | zip(pa_assign_after.json.rows | map(attribute='identifier') | list)) }}
 
-- name: Adresser les interfaces dont l'adresse diffère
-  ansible.builtin.uri:
-    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_set }}/{{ _row.uuid }}"
-    method: POST
-    url_username: "{{ pa_opnsense_api_key }}"
-    url_password: "{{ pa_opnsense_api_secret }}"
-    force_basic_auth: true
-    validate_certs: "{{ pa_opnsense_validate_certs }}"
-    body_format: json
-    body:
-      interface:
-        if: "{{ _device }}"
-        descr: "{{ item.name }}"
-        enable: "1"
-        ipaddr: "{{ _wanted_ip }}"
-        subnet: "{{ item.cidr.split('/')[1] }}"
-    status_code: [200]
+- name: Construire l'adressage voulu
+  ansible.builtin.set_fact:
+    pa_wanted_addressing: >-
+      {{ pa_wanted_addressing | default({}) | combine({
+           pa_device_to_ident[_device]: {
+             'ipaddr': item.cidr | regex_replace('^(\d+\.\d+\.\d+)\.\d+/\d+$', '\1.1'),
+             'subnet': item.cidr.split('/')[1],
+             'enable': '1'
+           }
+         }) }}
   vars:
     _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif }}"
-    _row: "{{ pa_assign_after.json.rows | selectattr('if', 'equalto', _device) | first }}"
-    _wanted_ip: "{{ item.cidr | regex_replace('^(\\d+\\.\\d+\\.\\d+)\\.\\d+/\\d+$', '\\1.1') }}"
-  register: pa_assign_set
-  failed_when:
-    - pa_assign_set.json.result is defined
-    - pa_assign_set.json.result not in ['saved', 'ok']
   loop: "{{ pa_opnsense_segments }}"
   loop_control:
-    label: "{{ item.name }} -> {{ _wanted_ip }}/{{ item.cidr.split('/')[1] }}"
-  when: (pa_current_ip[item.name] | default('')) != _wanted_ip
-  notify: Reconfigurer les assignations
+    label: "{{ item.name }} -> {{ pa_device_to_ident[_device] }}"
+
+- name: Déposer le script d'adressage sur le pare-feu
+  ansible.builtin.copy:
+    src: set_interface_addr.py
+    dest: /usr/local/bin/pa_set_interface_addr.py
+    mode: "0700"
+    owner: root
+    group: wheel
+  delegate_to: "{{ pa_opnsense_host }}"
+
+- name: Appliquer l'adressage dans la configuration
+  ansible.builtin.command:
+    argv:
+      - /usr/local/bin/python3
+      - /usr/local/bin/pa_set_interface_addr.py
+      - /conf/config.xml
+      - "{{ pa_wanted_addressing | to_json }}"
+  delegate_to: "{{ pa_opnsense_host }}"
+  register: pa_addr_apply
+  failed_when: pa_addr_apply.rc not in [0, 2]
+  changed_when: pa_addr_apply.rc == 2
+  notify: Recharger les interfaces
