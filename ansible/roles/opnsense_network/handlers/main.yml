@@ -22,13 +22,3 @@
     body_format: json
     body: {}
   listen: Reconfigurer les assignations
-
-- name: Recharger les interfaces
-  ansible.builtin.command:
-    argv: [/usr/local/sbin/configctl, interface, reconfigure, "{{ item }}"]
-  delegate_to: "{{ pa_opnsense_host }}"
-  loop: "{{ pa_wanted_addressing.keys() | list }}"
-  loop_control:
-    label: "{{ item }}"
-  changed_when: true
-  listen: Recharger les interfaces

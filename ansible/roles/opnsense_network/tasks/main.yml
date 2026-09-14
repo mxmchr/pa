@@ -7,12 +7,9 @@
     url_password: "{{ pa_opnsense_api_secret }}"
     force_basic_auth: true
     validate_certs: "{{ pa_opnsense_validate_certs }}"
-  register: pa_opnsense_api
   changed_when: false
 
-# ── VLAN ───────────────────────────────────────────────────────────────────
-
-- name: Lister les VLAN existants
+- name: Lister les périphériques VLAN existants
   ansible.builtin.uri:
     url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_vlan_search }}"
     method: POST
@@ -22,10 +19,10 @@
     validate_certs: "{{ pa_opnsense_validate_certs }}"
     body_format: json
     body: {}
-  register: pa_vlan_existing
+  register: pa_vlan_before
   changed_when: false
 
-- name: Créer les VLAN manquants
+- name: Créer les périphériques VLAN manquants
   ansible.builtin.uri:
     url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_vlan_add }}"
     method: POST
@@ -40,15 +37,104 @@
         tag: "{{ item.tag | string }}"
         pcp: "0"
         descr: "{{ item.name }}"
-    status_code: [200]
+  register: pa_vlan_add
+  failed_when:
+    - pa_vlan_add.json.result is defined
+    - pa_vlan_add.json.result not in ['saved', 'ok']
   loop: "{{ pa_opnsense_segments }}"
   loop_control:
     label: "{{ item.name }} (tag {{ item.tag }})"
-  when: item.tag | string not in (pa_vlan_existing.json.rows | default([]) | map(attribute='tag') | map('string') | list)
+  when: item.tag | string not in (pa_vlan_before.json.rows | default([]) | map(attribute='tag') | map('string') | list)
   notify: Reconfigurer les vlan
 
 - name: Appliquer les VLAN avant d'assigner
   ansible.builtin.meta: flush_handlers
 
-- name: Adresser les interfaces
-  ansible.builtin.include_tasks: addressing.yml
+- name: Relire les périphériques VLAN
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_vlan_search }}"
+    method: POST
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+    body_format: json
+    body: {}
+  register: pa_vlan_all
+  changed_when: false
+
+- name: Vérifier que chaque segment a son périphérique VLAN
+  ansible.builtin.assert:
+    that: pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | list | length == 1
+    fail_msg: "Aucun périphérique VLAN pour {{ item.name }} (tag {{ item.tag }})."
+    quiet: true
+  loop: "{{ pa_opnsense_segments }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Lister les interfaces déjà assignées
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_search }}"
+    method: POST
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+    body_format: json
+    body: {}
+  register: pa_assign_before
+  changed_when: false
+
+- name: Assigner les périphériques VLAN non encore assignés
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_add }}"
+    method: POST
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+    body_format: json
+    body:
+      interface:
+        if: "{{ _device }}"
+        descr: "{{ item.name }}"
+  vars:
+    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif }}"
+  register: pa_assign_add
+  failed_when:
+    - pa_assign_add.json.result is defined
+    - pa_assign_add.json.result not in ['saved', 'ok']
+  loop: "{{ pa_opnsense_segments }}"
+  loop_control:
+    label: "{{ item.name }} ({{ _device }})"
+  when: _device not in (pa_assign_before.json.rows | default([]) | map(attribute='if') | list)
+  notify: Reconfigurer les assignations
+
+- name: Appliquer les assignations
+  ansible.builtin.meta: flush_handlers
+
+- name: Relire les interfaces assignées
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_search }}"
+    method: POST
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+    body_format: json
+    body: {}
+  register: pa_assign_after
+  changed_when: false
+
+- name: Récapituler l'adressage à poser manuellement
+  ansible.builtin.debug:
+    msg: >-
+      Interfaces > {{ _ident | upper }} ({{ item.name }}, {{ _device }}) :
+      cocher Enable, IPv4 Static,
+      adresse {{ item.cidr | regex_replace('^(\d+\.\d+\.\d+)\.\d+/\d+$', '\1.1') }}/{{ item.cidr.split('/')[1] }}
+  vars:
+    _device: "{{ (pa_vlan_all.json.rows | selectattr('tag', 'equalto', item.tag | string) | first).vlanif }}"
+    _ident: "{{ (pa_assign_after.json.rows | selectattr('if', 'equalto', _device) | first).identifier }}"
+  loop: "{{ pa_opnsense_segments }}"
+  loop_control:
+    label: "{{ item.name }}"
