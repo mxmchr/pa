@@ -1,0 +1,6 @@
+nameserver 127.0.0.1
+{% for ns in pa_dns_servers | difference([ansible_host]) %}
+nameserver {{ ns }}
+{% endfor %}
+search {{ pa_dns_zone }}
+options timeout:2 attempts:2

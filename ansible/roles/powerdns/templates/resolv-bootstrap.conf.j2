@@ -1,0 +1,4 @@
+{% for ns in pa_dns_forwarders %}
+nameserver {{ ns }}
+{% endfor %}
+options timeout:2 attempts:2

@@ -1,13 +1,11 @@
 ---
 - name: Poser un résolveur temporaire pour atteindre les dépôts
   ansible.builtin.template:
-    src: resolv.conf.j2
+    src: resolv-bootstrap.conf.j2
     dest: /etc/resolv.conf
     owner: root
     group: root
     mode: "0644"
-  vars:
-    pa_dns_resolv_servers: "{{ pa_dns_forwarders }}"
 
 - name: Installer PowerDNS
   ansible.builtin.apt:
@@ -157,13 +155,11 @@
 
 - name: Basculer le résolveur du workload sur lui-même
   ansible.builtin.template:
-    src: resolv.conf.j2
+    src: resolv-final.conf.j2
     dest: /etc/resolv.conf
     owner: root
     group: root
     mode: "0644"
-  vars:
-    pa_dns_resolv_servers: "{{ ['127.0.0.1'] + (pa_dns_servers | difference([ansible_host])) }}"
 
 - name: Vérifier la résolution interne
   ansible.builtin.command:
