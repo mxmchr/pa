@@ -1,7 +1,7 @@
 ---
-- name: Préparer les templates VM et LXC utilisés par les workloads
+- name: Télécharger les templates LXC sur chaque nœud
   hosts: proxmox
   gather_facts: false
 
   roles:
-    - pve_vm_template
+    - pve_lxc_template
