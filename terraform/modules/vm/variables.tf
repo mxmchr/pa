@@ -107,7 +107,7 @@ variable "sockets" {
 variable "cpu_type" {
   description = "Type de CPU émulé."
   type        = string
-  default     = "x86-64-v2-AES"
+  default     = "host"
 }
 
 variable "memory_size" {

@@ -72,7 +72,7 @@ variable "lxcs" {
     ipv4_address           = string
     ipv4_gateway           = optional(string, null)
 
-    nesting = optional(bool, false)
+    nesting = optional(bool, true)
 
     timeout_create = optional(number, 5400)
     timeout_delete = optional(number, 3600)
@@ -112,7 +112,7 @@ variable "vms" {
 
     cores       = optional(number, 2)
     sockets     = optional(number, 1)
-    cpu_type    = optional(string, "x86-64-v2-AES")
+    cpu_type    = optional(string, "host")
     memory_size = optional(number, 2048)
 
     machine       = optional(string, "q35")
