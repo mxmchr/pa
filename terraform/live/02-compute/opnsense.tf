@@ -14,8 +14,7 @@ variable "opnsense" {
     disk_size   = optional(number, 20)
 
     wan_bridge = optional(string, "vmbr0")
-
-    trunk_bridge = optional(string, "vmbr1")
+    segment_bridges = optional(list(string), ["LAN", "SRV", "DMZ", "ADM", "BCK", "DEV", "PUB"])
 
     iso_file_id = string
   })
@@ -69,8 +68,11 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
     bridge = var.opnsense.wan_bridge
   }
 
-  network_device {
-    bridge = var.opnsense.trunk_bridge
+  dynamic "network_device" {
+    for_each = var.opnsense.segment_bridges
+    content {
+      bridge = network_device.value
+    }
   }
 
   serial_device {

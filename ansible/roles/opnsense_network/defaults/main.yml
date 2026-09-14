@@ -4,27 +4,20 @@ pa_opnsense_api_key: "{{ vault_opnsense_api_key }}"
 pa_opnsense_api_secret: "{{ vault_opnsense_api_secret }}"
 pa_opnsense_validate_certs: false
 
-pa_opnsense_ep_vlan_search: "/api/interfaces/vlan_settings/searchItem"
-pa_opnsense_ep_vlan_add: "/api/interfaces/vlan_settings/addItem"
-pa_opnsense_ep_vlan_reconfigure: "/api/interfaces/vlan_settings/reconfigure"
-
 pa_opnsense_ep_assign_search: "/api/interfaces/assignment/search_item"
 pa_opnsense_ep_assign_add: "/api/interfaces/assignment/add_item"
 pa_opnsense_ep_assign_reconfigure: "/api/interfaces/assignment/reconfigure"
-
 pa_opnsense_ep_overview: "/api/interfaces/overview/interfaces_info"
 
-pa_opnsense_trunk_device: vtnet1
-
-pa_opnsense_if_prefix: "VLAN_"
-
-pa_opnsense_require_addressing: false
+pa_opnsense_segment_mtu: 1450
 
 pa_opnsense_segments:
-  - {name: LAN, tag: 10, cidr: "10.0.10.0/24"}
-  - {name: SRV, tag: 20, cidr: "10.0.20.0/24"}
-  - {name: DMZ, tag: 30, cidr: "10.0.30.0/24"}
-  - {name: ADM, tag: 40, cidr: "10.0.40.0/24"}
-  - {name: BCK, tag: 50, cidr: "10.0.50.0/24"}
-  - {name: DEV, tag: 60, cidr: "10.0.60.0/24"}
-  - {name: PUB, tag: 70, cidr: "10.0.70.0/24"}
+  - {name: LAN, device: vtnet1, cidr: "10.0.10.0/24"}
+  - {name: SRV, device: vtnet2, cidr: "10.0.20.0/24"}
+  - {name: DMZ, device: vtnet3, cidr: "10.0.30.0/24"}
+  - {name: ADM, device: vtnet4, cidr: "10.0.40.0/24"}
+  - {name: BCK, device: vtnet5, cidr: "10.0.50.0/24"}
+  - {name: DEV, device: vtnet6, cidr: "10.0.60.0/24"}
+  - {name: PUB, device: vtnet7, cidr: "10.0.70.0/24"}
+
+pa_opnsense_require_addressing: false
