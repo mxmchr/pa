@@ -10,7 +10,7 @@ variable "opnsense" {
     node_name = optional(string, "pve1")
 
     cores       = optional(number, 2)
-    memory_size = optional(number, 4096)
+    memory_size = optional(number, 2048)
     disk_size   = optional(number, 20)
 
     wan_bridge      = optional(string, "vmbr0")

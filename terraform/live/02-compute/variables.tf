@@ -77,7 +77,7 @@ variable "lxcs" {
 
     datastore_id     = optional(string, null)
     disk_size        = number
-    template_file_id = string
+    template_file_id = optional(string, "local:vztmpl/debian-13-standard_13.6-1_amd64.tar.zst")
 
     mount_points = optional(list(object({
       volume = string
