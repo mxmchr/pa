@@ -1,15 +1,25 @@
-resource "proxmox_sdn_zone_vlan" "this" {
-  id     = local.sdn_id_upper
-  bridge = var.sdn_bridge
-  mtu    = var.mtu
-  ipam   = var.ipam
+locals {
+  sdn_id_upper  = upper(var.sdn_id)
+  vnet_id_upper = { for k, v in var.vnets : k => upper(k) }
+  vnet_alias    = { for k, v in var.vnets : k => upper(k) }
+}
+
+resource "proxmox_sdn_applier" "finalizer" {}
+
+resource "proxmox_sdn_zone_vxlan" "this" {
+  id    = local.sdn_id_upper
+  peers = var.peers
+  mtu   = var.mtu
+  ipam  = var.ipam
+
+  depends_on = [proxmox_sdn_applier.finalizer]
 }
 
 resource "proxmox_sdn_vnet" "this" {
   for_each = var.vnets
 
   id   = local.vnet_id_upper[each.key]
-  zone = proxmox_sdn_zone_vlan.this.id
+  zone = proxmox_sdn_zone_vxlan.this.id
 
   alias         = coalesce(each.value.alias, local.vnet_alias[each.key])
   tag           = each.value.tag
@@ -36,8 +46,8 @@ resource "proxmox_sdn_subnet" "this" {
 
 resource "terraform_data" "sdn_fingerprint" {
   input = sha256(jsonencode({
-    zone   = { id = local.sdn_id_upper, bridge = var.sdn_bridge, mtu = var.mtu, ipam = var.ipam }
-    vnets  = var.vnets
+    zone  = { id = local.sdn_id_upper, peers = var.peers, mtu = var.mtu, ipam = var.ipam }
+    vnets = var.vnets
   }))
 }
 
@@ -45,7 +55,7 @@ resource "proxmox_sdn_applier" "this" {
   count = var.apply_changes ? 1 : 0
 
   depends_on = [
-    proxmox_sdn_zone_vlan.this,
+    proxmox_sdn_zone_vxlan.this,
     proxmox_sdn_vnet.this,
     proxmox_sdn_subnet.this,
   ]

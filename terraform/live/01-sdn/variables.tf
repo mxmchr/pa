@@ -1,18 +1,16 @@
-############################################
-### Zone SDN VLAN + VNets                 ###
-### Plan d'adressage : 10.0.0.0/16, un    ###
-### /24 par VLAN (LAN=.10, SRV=.20, ...)  ###
-############################################
-
 variable "sdn_zone" {
   description = <<-EOT
-    Zone SDN VLAN et ses segments, sous forme courte : un tag et un CIDR par
-    VNet. Passerelle, plage DHCP et résolveur sont dérivés du CIDR dans
-    main.tf, selon le découpage unique documenté dans plan-adressage.md.
+    Zone SDN et ses segments, sous forme courte : un tag et un CIDR par VNet.
+    Passerelle, plage DHCP et résolveur sont dérivés du CIDR dans main.tf.
+
+    Zone VXLAN et non VLAN : la maquette est virtualisée sous VMware
+    Workstation, qui transporte les trames non étiquetées entre machines mais
+    jette les trames 802.1Q. Diagnostic : docs/decisions/sdn-vxlan.md
   EOT
   type = object({
-    sdn_id     = string
-    sdn_bridge = string
+    sdn_id = string
+    peers  = list(string)
+    mtu    = optional(number, 1450)
 
     vnets = map(object({
       tag        = number
@@ -25,8 +23,11 @@ variable "sdn_zone" {
   })
 
   default = {
-    sdn_id        = "pa"
-    sdn_bridge    = "vmbr1"
+    sdn_id = "pa"
+
+    peers = ["172.16.251.11", "172.16.251.12", "172.16.251.13"]
+    mtu   = 1450
+
     apply_changes = true
 
     vnets = {
@@ -39,16 +40,4 @@ variable "sdn_zone" {
       pub = { tag = 70, cidr = "10.0.70.0/24" }
     }
   }
-}
-
-variable "dns_servers" {
-  description = <<-EOT
-    Instances PowerDNS vers lesquelles OPNsense relaie les requêtes des
-    workloads. Non consommée par le SDN : le provider impose que le
-    résolveur annoncé par DHCP appartienne au subnet, c'est donc la
-    passerelle du segment qui est annoncée. Conservée ici comme référence
-    pour la configuration d'OPNsense en phase 09.
-  EOT
-  type        = list(string)
-  default     = ["10.0.20.5", "10.0.20.6"]
 }
