@@ -12,12 +12,12 @@ pa_opnsense_ep_overview: "/api/interfaces/overview/interfaces_info"
 pa_opnsense_segment_mtu: 1450
 
 pa_opnsense_segments:
-  - {name: LAN, device: vtnet1, cidr: "10.0.10.0/24"}
-  - {name: SRV, device: vtnet2, cidr: "10.0.20.0/24"}
-  - {name: DMZ, device: vtnet3, cidr: "10.0.30.0/24"}
-  - {name: ADM, device: vtnet4, cidr: "10.0.40.0/24"}
-  - {name: BCK, device: vtnet5, cidr: "10.0.50.0/24"}
-  - {name: DEV, device: vtnet6, cidr: "10.0.60.0/24"}
-  - {name: PUB, device: vtnet7, cidr: "10.0.70.0/24"}
+  - {name: LAN, mac: "BC:24:11:6E:A9:79", cidr: "10.0.10.0/24"}
+  - {name: SRV, mac: "BC:24:11:A0:25:F4", cidr: "10.0.20.0/24"}
+  - {name: DMZ, mac: "BC:24:11:B1:A2:78", cidr: "10.0.30.0/24"}
+  - {name: ADM, mac: "BC:24:11:80:39:88", cidr: "10.0.40.0/24"}
+  - {name: BCK, mac: "BC:24:11:ED:EE:C9", cidr: "10.0.50.0/24"}
+  - {name: DEV, mac: "BC:24:11:C5:AD:FE", cidr: "10.0.60.0/24"}
+  - {name: PUB, mac: "BC:24:11:97:ED:47", cidr: "10.0.70.0/24"}
 
 pa_opnsense_require_addressing: false
