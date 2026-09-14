@@ -6,6 +6,7 @@ pa_opnsense_validate_certs: false
 
 pa_opnsense_ep_assign_search: "/api/interfaces/assignment/search_item"
 pa_opnsense_ep_assign_add: "/api/interfaces/assignment/add_item"
+pa_opnsense_ep_assign_set: "/api/interfaces/assignment/set_item"
 pa_opnsense_ep_assign_reconfigure: "/api/interfaces/assignment/reconfigure"
 pa_opnsense_ep_overview: "/api/interfaces/overview/interfaces_info"
 

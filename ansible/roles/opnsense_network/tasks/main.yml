@@ -9,7 +9,7 @@
     validate_certs: "{{ pa_opnsense_validate_certs }}"
   changed_when: false
 
-# ── Résolution MAC -> périphérique ─────────────────────────────────────────
+# ── État réel ──────────────────────────────────────────────────────────────
 
 - name: Lire l'état des interfaces
   ansible.builtin.uri:
@@ -22,29 +22,7 @@
   register: pa_overview
   changed_when: false
 
-- name: Construire la table MAC -> périphérique
-  ansible.builtin.set_fact:
-    pa_mac_to_device: >-
-      {{ dict(_rows | map(attribute='macaddr') | map('lower') | list
-              | zip(_rows | map(attribute='device') | list)) }}
-  vars:
-    _rows: "{{ pa_overview.json.rows | selectattr('macaddr', 'defined') | list }}"
-
-- name: Vérifier que chaque segment a sa carte
-  ansible.builtin.assert:
-    that: (item.mac | lower) in pa_mac_to_device
-    fail_msg: >-
-      Aucune carte de MAC {{ item.mac }} pour le segment {{ item.name }}.
-      Vérifier network_device dans terraform/live/02-compute/opnsense.tf,
-      et que la VM a bien redémarré après ajout des cartes.
-    quiet: true
-  loop: "{{ pa_opnsense_segments }}"
-  loop_control:
-    label: "{{ item.name }} ({{ item.mac }})"
-
-# ── Assignation ────────────────────────────────────────────────────────────
-
-- name: Lister les interfaces déjà assignées
+- name: Lister les assignations existantes
   ansible.builtin.uri:
     url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_search }}"
     method: POST
@@ -54,8 +32,55 @@
     validate_certs: "{{ pa_opnsense_validate_certs }}"
     body_format: json
     body: {}
-  register: pa_assign_before
+  register: pa_assign
   changed_when: false
+
+- name: Construire les tables de correspondance
+  # L'ordre des vtnetN dépend de l'énumération PCI côté FreeBSD et ne suit pas
+  # celui des cartes déclarées dans Proxmox : la MAC est la seule clé fiable.
+  ansible.builtin.set_fact:
+    pa_mac_to_device: >-
+      {{ dict(_hw | map(attribute='macaddr') | map('lower') | list
+              | zip(_hw | map(attribute='device') | list)) }}
+    pa_mac_to_descr: >-
+      {{ dict(_hw | map(attribute='macaddr') | map('lower') | list
+              | zip(_hw | map(attribute='description') | list)) }}
+    pa_device_to_uuid: >-
+      {{ dict(pa_assign.json.rows | map(attribute='if') | list
+              | zip(pa_assign.json.rows | map(attribute='uuid') | list)) }}
+  vars:
+    _hw: "{{ pa_overview.json.rows | selectattr('macaddr', 'defined') | list }}"
+
+# ── Contrôles préalables ───────────────────────────────────────────────────
+
+- name: Vérifier que chaque segment a sa carte
+  ansible.builtin.assert:
+    that: (item.mac | lower) in pa_mac_to_device
+    fail_msg: >-
+      Aucune carte de MAC {{ item.mac }} pour le segment {{ item.name }}.
+      Vérifier les MAC figées dans terraform/live/02-compute/opnsense.tf et
+      que la VM a redémarré après ajout des cartes.
+    quiet: true
+  loop: "{{ pa_opnsense_segments }}"
+  loop_control:
+    label: "{{ item.name }} ({{ item.mac }})"
+
+- name: Refuser les assignations résiduelles sur des périphériques inconnus
+  # Une assignation pointant un périphérique absent du plan, typiquement un
+  # VLAN hérité d'une configuration antérieure, fausse la numérotation des
+  # optN et masque les segments réellement attendus.
+  ansible.builtin.assert:
+    that: item.if in (pa_opnsense_segments | map(attribute='mac') | map('lower') | map('extract', pa_mac_to_device) | list)
+    fail_msg: >-
+      L'interface {{ item.uuid }} est assignée au périphérique '{{ item.if }}',
+      absent du plan. La supprimer dans Interfaces > Assignments avant de
+      rejouer le rôle.
+    quiet: true
+  loop: "{{ pa_assign.json.rows | rejectattr('uuid', 'equalto', 'wan') | list }}"
+  loop_control:
+    label: "{{ item.uuid }} -> {{ item.if }}"
+
+# ── Assignation et correction ──────────────────────────────────────────────
 
 - name: Assigner les cartes non encore assignées
   ansible.builtin.uri:
@@ -73,15 +98,49 @@
   vars:
     _device: "{{ pa_mac_to_device[item.mac | lower] }}"
   register: pa_assign_add
+  # L'API répond 200 même quand elle refuse : le verdict est dans le corps.
   failed_when:
     - pa_assign_add.json.result is defined
     - pa_assign_add.json.result not in ['saved', 'ok']
   loop: "{{ pa_opnsense_segments }}"
   loop_control:
-    label: "{{ item.name }} ({{ _device }}, {{ item.mac }})"
-  when: _device not in (pa_assign_before.json.rows | default([]) | map(attribute='if') | list)
+    label: "{{ item.name }} ({{ _device }})"
+  when: _device not in pa_device_to_uuid
+
+- name: Corriger les libellés qui ne correspondent pas à leur carte
+  # Vérifier la seule présence du périphérique laisserait s'installer une
+  # dérive silencieuse : une carte assignée sous le mauvais nom ne serait
+  # jamais reprise.
+  ansible.builtin.uri:
+    url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_set }}/{{ pa_device_to_uuid[_device] }}"
+    method: POST
+    url_username: "{{ pa_opnsense_api_key }}"
+    url_password: "{{ pa_opnsense_api_secret }}"
+    force_basic_auth: true
+    validate_certs: "{{ pa_opnsense_validate_certs }}"
+    body_format: json
+    body:
+      interface:
+        if: "{{ _device }}"
+        descr: "{{ item.name }}"
+  vars:
+    _device: "{{ pa_mac_to_device[item.mac | lower] }}"
+    _descr: "{{ pa_mac_to_descr[item.mac | lower] | default('') }}"
+  register: pa_assign_fix
+  failed_when:
+    - pa_assign_fix.json.result is defined
+    - pa_assign_fix.json.result not in ['saved', 'ok']
+  loop: "{{ pa_opnsense_segments }}"
+  loop_control:
+    label: "{{ item.name }} ({{ _device }}, actuellement '{{ _descr }}')"
+  when:
+    - _device in pa_device_to_uuid
+    - _descr != item.name
 
 - name: Appliquer les assignations
+  # Inconditionnel : une configuration enregistrée mais non appliquée laisse
+  # les interfaces absentes au niveau système sans qu'aucune tâche ne soit en
+  # changed, donc sans déclencher de handler.
   ansible.builtin.uri:
     url: "{{ pa_opnsense_url }}{{ pa_opnsense_ep_assign_reconfigure }}"
     method: POST
@@ -107,6 +166,8 @@
   changed_when: false
 
 - name: Construire la table MAC -> configuration
+  # Indexée par MAC et non par libellé : une interface mal nommée doit être
+  # détectée, pas masquée par une correspondance sur son propre nom.
   ansible.builtin.set_fact:
     pa_if_config: >-
       {{ dict(_rows | map(attribute='macaddr') | map('lower') | list
@@ -118,6 +179,9 @@
          | selectattr('config', 'defined') | list }}
 
 - name: Récapituler l'adressage restant à poser
+  # L'API ne permet pas d'écrire l'adresse d'une interface, mais
+  # overview/interfaces_info expose sa configuration en lecture : le rôle
+  # contrôle donc l'étape manuelle au lieu de la supposer faite.
   ansible.builtin.debug:
     msg: >-
       {{ item.name }} ({{ pa_mac_to_device[item.mac | lower] }}) :
