@@ -16,8 +16,7 @@ variable "vm_id" {
   description = <<-EOT
     VMID Proxmox, obligatoire. Un identifiant attribué automatiquement
     varierait d'un déploiement à l'autre et rendrait non reproductible le
-    rattachement HA, qui lit ces identifiants dans le state.
-    Plan d'attribution : docs/architecture/plan-vmid.md
+    rattachement HA. Plan : docs/architecture/plan-vmid.md
   EOT
   type        = number
 }
@@ -37,33 +36,30 @@ variable "tags" {
 ### Source du disque                      ###
 ############################################
 
-variable "clone_vm_id" {
+variable "disk_import_from" {
   description = <<-EOT
-    VMID du template cloud-init à cloner. Exclusif avec disk_file_id.
-    Le template doit préexister (rôle Ansible pve_vm_template).
+    Identifiant d'une image à importer comme disque système, typiquement une
+    ressource proxmox_virtual_environment_download_file de content_type
+    "import". Exclusif avec disk_file_id.
+
+    L'image est copiée dans le stockage de la VM : contrairement à un clone
+    lié, l'opération duplique les données.
   EOT
-  type        = number
+  type        = string
   default     = null
 }
 
 variable "disk_file_id" {
   description = <<-EOT
-    Identifiant Proxmox d'une image disque à importer, par exemple
-    "local:iso/OPNsense-25.1-amd64.img". Exclusif avec clone_vm_id.
-
-    Destiné aux appliances livrées sous forme d'image, qui ne se clonent
-    pas depuis un template cloud-init.
+    Identifiant d'une image disque brute à attacher, pour les appliances
+    livrées sous cette forme. Exclusif avec disk_import_from.
   EOT
   type        = string
   default     = null
 }
 
 variable "cdrom_file_id" {
-  description = <<-EOT
-    Identifiant d'une image ISO montée en lecteur optique, utilisée pour
-    injecter une configuration d'amorçage à une appliance.
-    Cf. docs/decisions/opnsense-bootstrap.md
-  EOT
+  description = "Image ISO montée en lecteur optique. null pour aucun."
   type        = string
   default     = null
 }
@@ -78,7 +74,7 @@ variable "datastore_id" {
 }
 
 variable "disk_size" {
-  description = "Taille du disque système (Go). Doit être >= à celle de la source."
+  description = "Taille du disque système (Go). Doit être >= à celle de l'image."
   type        = number
   default     = 8
 
@@ -105,7 +101,14 @@ variable "sockets" {
 }
 
 variable "cpu_type" {
-  description = "Type de CPU émulé."
+  description = <<-EOT
+    Modèle de CPU émulé. "host" expose le jeu d'instructions de l'hôte : les
+    modèles synthétiques réclament cmp-legacy, une extension AMD que l'hôte de
+    virtualisation imbriquée n'expose pas, et le démarrage échoue.
+
+    Contrepartie : "host" empêche la migration vers un nœud de génération
+    différente, à réévaluer avant la phase 08 sur du matériel hétérogène.
+  EOT
   type        = string
   default     = "host"
 }
@@ -123,13 +126,9 @@ variable "machine" {
 }
 
 variable "bios" {
-  description = <<-EOT
-    Firmware : "seabios" ou "ovmf". Défaut à ovmf, le seul template du dépôt
-    étant construit en UEFI avec disque EFI (rôle pve_vm_template) : pousser
-    seabios sur un clone d'un template UEFI empêcherait son démarrage.
-  EOT
+  description = "Firmware : \"seabios\" ou \"ovmf\"."
   type        = string
-  default     = "ovmf"
+  default     = "seabios"
 
   validation {
     condition     = contains(["seabios", "ovmf"], var.bios)
@@ -137,30 +136,17 @@ variable "bios" {
   }
 }
 
-variable "cloud_init_username" {
-  description = <<-EOT
-    Compte créé par cloud-init et porteur de la clé générée. "ansible" plutôt
-    que root : c'est ce compte que l'inventaire de la phase 09 utilisera comme
-    ansible_user, et le provider ne l'inférerait pas.
-  EOT
-  type        = string
-  default     = "ansible"
-}
-
 variable "os_type" {
-  description = <<-EOT
-    Type d'OS déclaré à Proxmox : "l26" pour Linux, "other" pour les
-    systèmes BSD, dont OPNsense.
-  EOT
+  description = "Type d'OS : \"l26\" pour Linux, \"other\" pour les systèmes BSD."
   type        = string
   default     = "l26"
 }
 
 variable "agent_enabled" {
   description = <<-EOT
-    Active l'attente de l'agent invité. À laisser à false tant que l'agent
-    n'est pas installé dans l'invité : Terraform attendrait sinon un agent
-    qui ne répond jamais, jusqu'au timeout.
+    Active l'attente de l'agent invité. À laisser à false tant que
+    qemu-guest-agent n'est pas installé dans l'invité : l'image cloud Debian
+    ne l'embarque pas, et le provider attendrait jusqu'au délai d'expiration.
   EOT
   type        = bool
   default     = false
@@ -178,16 +164,15 @@ variable "keyboard_layout" {
 
 variable "network_devices" {
   description = <<-EOT
-    Interfaces réseau, dans l'ordre : la première devient net0, la
-    deuxième net1, etc. L'ordre est significatif et ne doit pas changer
-    sur une VM existante, sous peine de réattribuer les interfaces côté
-    invité.
+    Interfaces réseau, dans l'ordre : la première devient net0, la deuxième
+    net1, etc.
 
-    Une VM ordinaire n'en déclare qu'une. Le pare-feu inter-zone en porte
-    une par segment, plus l'interface externe.
+    Attention : l'ordre des cartes côté Proxmox ne détermine pas celui des
+    périphériques vus par l'invité, qui dépend de l'énumération PCI. Toute
+    configuration qui doit désigner une carte précise s'appuie sur sa MAC,
+    et non sur son rang.
 
-    vlan_id reste null avec les VNets SDN, le tag étant porté par le VNet
-    lui-même.
+    mtu : 1450 sur les segments SDN, l'encapsulation VXLAN coûtant 50 octets.
   EOT
   type = list(object({
     bridge      = string
@@ -195,6 +180,7 @@ variable "network_devices" {
     vlan_id     = optional(number, null)
     model       = optional(string, "virtio")
     firewall    = optional(bool, false)
+    mtu         = optional(number, null)
   }))
 
   validation {
@@ -217,21 +203,29 @@ variable "network_devices" {
 
 variable "cloud_init" {
   description = <<-EOT
-    Active l'initialisation cloud-init : lecteur dédié, hostname, DNS,
-    adressage de la première interface, clé et mot de passe générés.
-
-    À désactiver pour une appliance qui porte sa propre configuration
-    (OPNsense) : le lecteur attaché serait ignoré par l'invité, et les
-    identifiants générés n'auraient aucun effet.
+    Active l'initialisation cloud-init. À désactiver pour une appliance qui
+    porte sa propre configuration : le lecteur attaché serait ignoré.
   EOT
   type        = bool
   default     = true
 }
 
-variable "hostname" {
-  description = "Hostname injecté par cloud-init. Sans objet si cloud_init vaut false."
+variable "cloud_init_username" {
+  description = <<-EOT
+    Compte créé par cloud-init et porteur des clés. C'est ce compte que
+    l'inventaire Ansible utilise comme ansible_user.
+  EOT
   type        = string
-  default     = null
+  default     = "ansible"
+}
+
+variable "extra_ssh_keys" {
+  description = <<-EOT
+    Clés publiques supplémentaires, en plus de celle générée pour ce workload.
+    C'est par l'une d'elles qu'Ansible se connecte.
+  EOT
+  type        = list(string)
+  default     = []
 }
 
 variable "dns_domain" {
@@ -247,24 +241,24 @@ variable "dns_servers" {
 }
 
 variable "ipv4_address" {
-  description = "Adresse de la première interface (cloud-init) : \"dhcp\" ou CIDR."
+  description = "Adresse de la première interface : \"dhcp\" ou CIDR."
   type        = string
   default     = "dhcp"
 
   validation {
     condition     = can(regex("^(dhcp|\\d{1,3}(?:\\.\\d{1,3}){3}/\\d{1,2})$", var.ipv4_address))
-    error_message = "ipv4_address doit être 'dhcp' ou au format CIDR, ex: 10.0.20.10/24."
+    error_message = "ipv4_address doit être 'dhcp' ou au format CIDR."
   }
 }
 
 variable "ipv4_gateway" {
-  description = "Passerelle de la première interface (cloud-init). null si DHCP."
+  description = "Passerelle de la première interface. null si DHCP."
   type        = string
   default     = null
 
   validation {
     condition     = var.ipv4_gateway == null || can(regex("^\\d{1,3}(?:\\.\\d{1,3}){3}$", var.ipv4_gateway))
-    error_message = "ipv4_gateway doit être null ou une IPv4 au format x.x.x.x."
+    error_message = "ipv4_gateway doit être null ou une IPv4."
   }
 }
 
@@ -280,7 +274,7 @@ variable "root_password_length" {
 }
 
 ############################################
-### Démarrage                             ###
+### Démarrage et délais                   ###
 ############################################
 
 variable "on_boot" {
@@ -290,10 +284,7 @@ variable "on_boot" {
 }
 
 variable "startup_order" {
-  description = <<-EOT
-    Ordre de démarrage Proxmox. Le pare-feu inter-zone porte les
-    passerelles de tous les segments : il démarre en premier (1).
-  EOT
+  description = "Ordre de démarrage Proxmox."
   type        = number
   default     = 3
 }
@@ -310,32 +301,12 @@ variable "startup_down_delay" {
   default     = 0
 }
 
-############################################
-### Cohérence                             ###
-############################################
-
-check "disk_source" {
-  assert {
-    condition     = (var.clone_vm_id == null) != (var.disk_file_id == null)
-    error_message = "Renseigner clone_vm_id OU disk_file_id, pas les deux ni aucun."
-  }
-}
-
-check "cloud_init_fields" {
-  assert {
-    condition     = !var.cloud_init || var.hostname != null
-    error_message = "hostname est requis lorsque cloud_init est actif."
-  }
-}
-
-variable "timeout_clone" {
-  description = "Délai d'attente de la tâche de clonage, en secondes."
-  type        = number
-  default     = 5400
-}
-
 variable "timeout_create" {
-  description = "Délai d'attente de la tâche de création, en secondes."
+  description = <<-EOT
+    Délai d'attente de la création, en secondes. L'importation d'une image
+    copie plusieurs centaines de mégaoctets vers Ceph, ce qui dépasse
+    largement le défaut du provider sur la maquette.
+  EOT
   type        = number
   default     = 5400
 }
@@ -346,24 +317,26 @@ variable "timeout_stop_vm" {
   default     = 1800
 }
 
-variable "full_clone" {
-  description = <<-EOT
-    Clone complet (copie intégrale) ou lié (copie sur écriture).
-
-    Le clone lié est quasi instantané et économise l'espace, mais lie le
-    workload au template, qui ne peut alors plus être supprimé. Décisif sur
-    la maquette ; préférer le clone complet en livraison.
-  EOT
-  type        = bool
-  default     = true
+variable "timeout_shutdown_vm" {
+  description = "Délai d'attente de l'extinction, en secondes."
+  type        = number
+  default     = 1800
 }
 
-variable "extra_ssh_keys" {
-  description = <<-EOT
-    Clés publiques supplémentaires, en plus de celle générée pour ce workload.
-    C'est par l'une d'elles qu'Ansible se connecte : sans clé commune, il
-    faudrait extraire du state une clé privée distincte par hôte.
-  EOT
-  type        = list(string)
-  default     = []
+############################################
+### Cohérence                             ###
+############################################
+
+check "disk_source" {
+  assert {
+    condition     = (var.disk_import_from == null) != (var.disk_file_id == null)
+    error_message = "Renseigner disk_import_from OU disk_file_id, pas les deux ni aucun."
+  }
+}
+
+check "cloud_init_fields" {
+  assert {
+    condition     = !var.cloud_init || var.ipv4_address != null
+    error_message = "ipv4_address est requis lorsque cloud_init est actif."
+  }
 }

@@ -97,7 +97,7 @@ variable "lxcs" {
 ############################################
 
 variable "vms" {
-  description = "Définition des VM QEMU."
+  description = "Définition des workloads VM."
   type = map(object({
     name       = string
     node_name  = optional(string, "pve1")
@@ -105,8 +105,8 @@ variable "vms" {
     vm_pool_id = optional(string, null)
     tags       = optional(list(string), [])
 
-    clone_vm_id   = optional(number, null)
-    full_clone = optional(bool, true)
+    # Absent : l'image est importée depuis proxmox_virtual_environment_download_file
+    # (cf. images.tf). disk_file_id ne sert qu'aux appliances.
     disk_file_id  = optional(string, null)
     cdrom_file_id = optional(string, null)
 
@@ -116,9 +116,9 @@ variable "vms" {
     memory_size = optional(number, 2048)
 
     machine       = optional(string, "q35")
-    bios          = optional(string, "ovmf")
+    bios          = optional(string, "seabios")
     os_type       = optional(string, "l26")
-    agent_enabled = optional(bool, true)
+    agent_enabled = optional(bool, false)
 
     network_devices = list(object({
       bridge      = string
@@ -126,26 +126,25 @@ variable "vms" {
       vlan_id     = optional(number, null)
       model       = optional(string, "virtio")
       firewall    = optional(bool, false)
+      mtu         = optional(number, 1450)
     }))
 
-    cloud_init   = optional(bool, true)
+    cloud_init          = optional(bool, true)
     cloud_init_username = optional(string, "ansible")
-    hostname     = optional(string, null)
-    dns_domain   = optional(string, "pa.lan")
-    dns_servers  = optional(list(string), null)
-    ipv4_address = optional(string, "dhcp")
-    ipv4_gateway = optional(string, null)
+    dns_domain          = optional(string, "pa.lan")
+    dns_servers         = optional(list(string), null)
+    ipv4_address        = optional(string, "dhcp")
+    ipv4_gateway        = optional(string, null)
 
     datastore_id = optional(string, null)
     disk_size    = optional(number, 8)
 
-    keyboard_layout = optional(string, "fr")
-    on_boot         = optional(bool, true)
-    startup_order   = optional(number, 3)
-
-    timeout_clone   = optional(number, 5400)
-    timeout_create  = optional(number, 5400)
-    timeout_stop_vm = optional(number, 1800)
+    keyboard_layout     = optional(string, "fr")
+    on_boot             = optional(bool, true)
+    startup_order       = optional(number, 3)
+    timeout_create      = optional(number, 5400)
+    timeout_stop_vm     = optional(number, 1800)
+    timeout_shutdown_vm = optional(number, 1800)
   }))
   default = {}
 }

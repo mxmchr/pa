@@ -70,16 +70,17 @@ module "vm" {
   source   = "../../modules/vm"
   for_each = var.vms
 
-  name       = each.value.name
-  node_name  = each.value.node_name
-  vm_id      = each.value.vm_id
-  pool_id    = each.value.vm_pool_id
-  tags       = each.value.tags
+  name      = each.value.name
+  node_name = each.value.node_name
+  vm_id     = each.value.vm_id
+  pool_id   = each.value.vm_pool_id
+  tags      = each.value.tags
 
-  clone_vm_id   = each.value.clone_vm_id
-  full_clone = each.value.full_clone
-  disk_file_id  = each.value.disk_file_id
-  cdrom_file_id = each.value.cdrom_file_id
+  # Image importée depuis le téléchargement du nœud qui héberge la VM :
+  # le stockage "local" n'étant pas partagé, chaque nœud a sa copie.
+  disk_import_from = each.value.disk_file_id == null ? proxmox_virtual_environment_download_file.debian[each.value.node_name].id : null
+  disk_file_id     = each.value.disk_file_id
+  cdrom_file_id    = each.value.cdrom_file_id
 
   cores       = each.value.cores
   sockets     = each.value.sockets
@@ -95,24 +96,21 @@ module "vm" {
 
   cloud_init          = each.value.cloud_init
   cloud_init_username = each.value.cloud_init_username
-  
-  hostname     = each.value.hostname
-  extra_ssh_keys = [var.admin_ssh_public_key]
-  dns_domain   = each.value.dns_domain
-  dns_servers  = coalesce(each.value.dns_servers, var.dns_servers_default)
-  ipv4_address = each.value.ipv4_address
-  ipv4_gateway = each.value.ipv4_gateway
+  dns_domain          = each.value.dns_domain
+  dns_servers         = coalesce(each.value.dns_servers, var.dns_servers_default)
+  ipv4_address        = each.value.ipv4_address
+  ipv4_gateway        = each.value.ipv4_gateway
+  extra_ssh_keys      = [var.admin_ssh_public_key]
 
   datastore_id = coalesce(each.value.datastore_id, var.shared_datastore_id)
   disk_size    = each.value.disk_size
 
-  keyboard_layout = each.value.keyboard_layout
-  on_boot         = each.value.on_boot
-  startup_order   = each.value.startup_order
-
-  timeout_clone   = each.value.timeout_clone
-  timeout_create  = each.value.timeout_create
-  timeout_stop_vm = each.value.timeout_stop_vm
+  keyboard_layout     = each.value.keyboard_layout
+  on_boot             = each.value.on_boot
+  startup_order       = each.value.startup_order
+  timeout_create      = each.value.timeout_create
+  timeout_stop_vm     = each.value.timeout_stop_vm
+  timeout_shutdown_vm = each.value.timeout_shutdown_vm
 
   depends_on = [module.pool]
 }

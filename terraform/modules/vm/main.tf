@@ -10,24 +10,12 @@ resource "proxmox_virtual_environment_vm" "this" {
   keyboard_layout = var.keyboard_layout
   scsi_hardware   = "virtio-scsi-single"
 
-  timeout_clone   = var.timeout_clone
-  timeout_create  = var.timeout_create
-  timeout_stop_vm = var.timeout_stop_vm
-
   agent {
     enabled = var.agent_enabled
   }
 
   operating_system {
     type = var.os_type
-  }
-
-  dynamic "clone" {
-    for_each = var.clone_vm_id == null ? [] : [var.clone_vm_id]
-    content {
-      vm_id = clone.value
-      full  = var.full_clone
-    }
   }
 
   cpu {
@@ -42,15 +30,16 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   disk {
     datastore_id = var.datastore_id
-    size         = var.disk_size
     interface    = "scsi0"
+    size         = var.disk_size
+    discard      = "on"
+    iothread     = true
+    ssd          = true
 
-    # Image importée pour une appliance ; null lors d'un clone, le disque
-    # venant alors du template.
-    file_id = var.disk_file_id
+    import_from = var.disk_import_from
+    file_id     = var.disk_file_id
   }
 
-  # Configuration d'amorçage injectée à une appliance.
   dynamic "cdrom" {
     for_each = var.cdrom_file_id == null ? [] : [var.cdrom_file_id]
     content {
@@ -62,7 +51,6 @@ resource "proxmox_virtual_environment_vm" "this" {
     for_each = var.cloud_init ? [1] : []
     content {
       datastore_id = var.datastore_id
-      interface    = "ide0"
 
       dns {
         domain  = var.dns_domain
@@ -95,7 +83,12 @@ resource "proxmox_virtual_environment_vm" "this" {
       vlan_id     = network_device.value.vlan_id
       model       = network_device.value.model
       firewall    = network_device.value.firewall
+      mtu         = network_device.value.mtu
     }
+  }
+
+  serial_device {
+    device = "socket"
   }
 
   on_boot = var.on_boot
@@ -108,6 +101,10 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   stop_on_destroy  = true
   purge_on_destroy = true
+
+  timeout_create      = var.timeout_create
+  timeout_stop_vm     = var.timeout_stop_vm
+  timeout_shutdown_vm = var.timeout_shutdown_vm
 }
 
 resource "random_password" "root_password" {
