@@ -1,0 +1,23 @@
+incoming:
+  listen:
+    - "0.0.0.0"
+  port: {{ pa_dns_recursor_port }}
+  allow_from:
+{% for net in pa_dns_allow_from %}
+    - "{{ net }}"
+{% endfor %}
+
+recursor:
+  forward_zones:
+    - zone: "{{ pa_dns_zone }}"
+      forwarders:
+        - "127.0.0.1:{{ pa_dns_auth_port }}"
+  forward_zones_recurse:
+    - zone: "."
+      forwarders:
+{% for fwd in pa_dns_forwarders %}
+        - "{{ fwd }}"
+{% endfor %}
+
+dnssec:
+  validation: "process-no-validate"
