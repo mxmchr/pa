@@ -1,4 +1,12 @@
 ---
+- name: Vérifier que le type de workload est renseigné
+  ansible.builtin.assert:
+    that: pa_workload_kind is defined and pa_workload_kind in ['lxc', 'vm']
+    fail_msg: >-
+      pa_workload_kind absent ou invalide pour {{ inventory_hostname }}.
+      Régénérer l'inventaire depuis terraform/live/02-compute.
+    quiet: true
+
 - name: Relever le MTU courant de l'interface
   ansible.builtin.command:
     cmd: "ip -o link show {{ pa_workload_interface }}"
