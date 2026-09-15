@@ -1,0 +1,14 @@
+ui = true
+disable_mlock = true
+
+storage "file" {
+  path = "{{ pa_openbao_data_dir }}"
+}
+
+listener "tcp" {
+  address     = "0.0.0.0:{{ pa_openbao_port }}"
+  tls_disable = true
+}
+
+api_addr     = "http://{{ pa_openbao_addr }}:{{ pa_openbao_port }}"
+cluster_addr = "http://{{ pa_openbao_addr }}:{{ pa_openbao_cluster_port }}"

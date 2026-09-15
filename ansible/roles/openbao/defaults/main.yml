@@ -1,0 +1,15 @@
+---
+pa_openbao_version: "2.6.2"
+pa_openbao_deb_url: "https://github.com/openbao/openbao/releases/download/v{{ pa_openbao_version }}/openbao-hsm_{{ pa_openbao_version }}_linux_amd64.deb"
+pa_openbao_deb_checksum: "sha256:f19784c4c865ee66b6dda164e0535fa6ca6ac2d45e5edb7ed0e0a5dc08bd9c3c"
+
+pa_openbao_addr: "10.0.20.10"
+pa_openbao_port: 8200
+pa_openbao_cluster_port: 8201
+pa_openbao_data_dir: /opt/openbao/data
+pa_openbao_config_dir: /etc/openbao
+
+pa_openbao_key_shares: 5
+pa_openbao_key_threshold: 3
+
+pa_openbao_init_file: "{{ playbook_dir }}/../.openbao-init.json"

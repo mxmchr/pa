@@ -1,0 +1,6 @@
+---
+- name: Redémarrer openbao
+  ansible.builtin.systemd_service:
+    name: openbao
+    state: restarted
+  listen: Redémarrer openbao

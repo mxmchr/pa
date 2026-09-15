@@ -1,0 +1,7 @@
+---
+- name: Déployer le coffre à secrets
+  hosts: openbao_hosts
+  gather_facts: true
+
+  roles:
+    - openbao

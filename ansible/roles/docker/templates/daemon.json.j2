@@ -1,0 +1,9 @@
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "{{ pa_docker_log_max_size }}",
+    "max-file": "{{ pa_docker_log_max_file | string }}"
+  },
+  "storage-driver": "{{ pa_docker_storage_driver }}",
+  "live-restore": true
+}

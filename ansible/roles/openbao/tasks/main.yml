@@ -1,0 +1,116 @@
+---
+- name: Relever la version installée
+  ansible.builtin.command:
+    cmd: bao version
+  register: pa_openbao_installed
+  changed_when: false
+  failed_when: false
+
+- name: Télécharger le paquet
+  ansible.builtin.get_url:
+    url: "{{ pa_openbao_deb_url }}"
+    dest: "/tmp/openbao_{{ pa_openbao_version }}.deb"
+    checksum: "{{ pa_openbao_deb_checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: pa_openbao_version not in (pa_openbao_installed.stdout | default(''))
+
+- name: Installer OpenBao
+  ansible.builtin.apt:
+    deb: "/tmp/openbao_{{ pa_openbao_version }}.deb"
+    state: present
+  when: pa_openbao_version not in (pa_openbao_installed.stdout | default(''))
+
+- name: Créer le répertoire de données
+  ansible.builtin.file:
+    path: "{{ pa_openbao_data_dir }}"
+    state: directory
+    owner: openbao
+    group: openbao
+    mode: "0700"
+
+- name: Configurer OpenBao
+  ansible.builtin.template:
+    src: openbao.hcl.j2
+    dest: "{{ pa_openbao_config_dir }}/openbao.hcl"
+    owner: openbao
+    group: openbao
+    mode: "0640"
+  notify: Redémarrer openbao
+
+- name: Activer le service
+  ansible.builtin.systemd_service:
+    name: openbao
+    enabled: true
+    state: started
+
+- name: Appliquer la configuration avant les appels d'API
+  ansible.builtin.meta: flush_handlers
+
+- name: Attendre que l'API réponde
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_openbao_port }}/v1/sys/seal-status"
+    method: GET
+    status_code: [200, 429, 501, 503]
+  register: pa_openbao_status
+  retries: 15
+  delay: 2
+  until: pa_openbao_status.status in [200, 429, 501, 503]
+  changed_when: false
+
+- name: Initialiser le coffre
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_openbao_port }}/v1/sys/init"
+    method: POST
+    body_format: json
+    body:
+      secret_shares: "{{ pa_openbao_key_shares }}"
+      secret_threshold: "{{ pa_openbao_key_threshold }}"
+    status_code: [200]
+  register: pa_openbao_init
+  when: not pa_openbao_status.json.initialized
+
+- name: Conserver les clés de descellement sur le nœud de contrôle
+  ansible.builtin.copy:
+    content: "{{ pa_openbao_init.json | to_nice_json }}"
+    dest: "{{ pa_openbao_init_file }}"
+    mode: "0600"
+  delegate_to: localhost
+  when: not pa_openbao_status.json.initialized
+  no_log: true
+
+- name: Charger les clés de descellement
+  ansible.builtin.set_fact:
+    pa_openbao_keys: "{{ (lookup('file', pa_openbao_init_file) | from_json).keys_base64 }}"
+
+- name: Relire l'état du sceau
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_openbao_port }}/v1/sys/seal-status"
+    method: GET
+  register: pa_openbao_seal
+  changed_when: false
+
+- name: Desceller le coffre
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_openbao_port }}/v1/sys/unseal"
+    method: POST
+    body_format: json
+    body:
+      key: "{{ item }}"
+    status_code: [200]
+  loop: "{{ pa_openbao_keys[0:pa_openbao_key_threshold] }}"
+  loop_control:
+    label: "part {{ loop_index }}"
+    index_var: loop_index
+  when: pa_openbao_seal.json.sealed
+  changed_when: true
+  no_log: true
+
+- name: Vérifier que le coffre est descellé
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_openbao_port }}/v1/sys/seal-status"
+    method: GET
+  register: pa_openbao_final
+  changed_when: false
+  failed_when: pa_openbao_final.json.sealed

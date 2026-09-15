@@ -1,0 +1,77 @@
+---
+- name: Installer les prérequis
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+    cache_valid_time: 0
+
+- name: Créer le répertoire des trousseaux
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Récupérer la clé du dépôt Docker
+  ansible.builtin.get_url:
+    url: "{{ pa_docker_gpg_url }}"
+    dest: "{{ pa_docker_keyring }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Déclarer le dépôt Docker
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: [deb]
+    uris: "{{ pa_docker_repo_url }}"
+    suites: ["{{ ansible_distribution_release }}"]
+    components: [stable]
+    architectures: ["{{ ansible_architecture | replace('x86_64', 'amd64') }}"]
+    signed_by: "{{ pa_docker_keyring }}"
+    state: present
+    enabled: true
+
+- name: Installer Docker
+  ansible.builtin.apt:
+    name: "{{ pa_docker_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 0
+
+- name: Configurer le démon
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Redémarrer docker
+
+- name: Activer le service
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Appliquer la configuration avant les contrôles
+  ansible.builtin.meta: flush_handlers
+
+- name: Vérifier que le démon répond
+  ansible.builtin.command:
+    cmd: docker info --format '{{ "{{" }}.ServerVersion{{ "}}" }}'
+  register: pa_docker_info
+  changed_when: false
+  failed_when: pa_docker_info.stdout | trim | length == 0
+
+- name: Vérifier que compose est disponible
+  ansible.builtin.command:
+    cmd: docker compose version --short
+  register: pa_docker_compose
+  changed_when: false
+  failed_when: pa_docker_compose.stdout | trim | length == 0

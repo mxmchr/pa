@@ -1,0 +1,7 @@
+---
+- name: Installer le moteur de conteneurs
+  hosts: docker_hosts
+  gather_facts: true
+
+  roles:
+    - docker

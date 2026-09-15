@@ -1,0 +1,15 @@
+---
+pa_docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+pa_docker_repo_url: "https://download.docker.com/linux/debian"
+pa_docker_gpg_url: "https://download.docker.com/linux/debian/gpg"
+pa_docker_keyring: /etc/apt/keyrings/docker.asc
+
+pa_docker_log_max_size: "10m"
+pa_docker_log_max_file: 3
+pa_docker_storage_driver: overlay2
