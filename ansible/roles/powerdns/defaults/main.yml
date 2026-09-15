@@ -48,5 +48,4 @@ pa_dns_records:
   - {name: pve1, ip: "172.16.255.11"}
   - {name: pve2, ip: "172.16.255.12"}
   - {name: pve3, ip: "172.16.255.13"}
-  - {name: netbird, ip: "10.0.30.5"}
   - {name: google, ip: "8.8.8.8"}
