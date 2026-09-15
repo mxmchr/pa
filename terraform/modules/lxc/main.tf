@@ -9,10 +9,6 @@ resource "proxmox_virtual_environment_container" "this" {
   unprivileged = local.unprivileged
   protection   = local.protection_enabled
 
-  features {
-    nesting = var.nesting
-  }
-
   cpu {
     architecture = var.architecture
     cores        = var.cores
