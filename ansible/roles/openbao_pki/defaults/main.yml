@@ -1,0 +1,19 @@
+---
+pa_pki_addr: "http://127.0.0.1:8200"
+pa_pki_token: "{{ (lookup('file', pa_openbao_init_file) | from_json).root_token }}"
+
+pa_pki_domain: "pa.lan"
+pa_pki_org: "Open Trust Factory"
+
+pa_pki_root_mount: "pki_root"
+pa_pki_int_mount: "pki_int"
+
+pa_pki_root_ttl: "87600h"
+pa_pki_int_ttl: "43800h"
+pa_pki_leaf_max_ttl: "2160h"
+pa_pki_leaf_ttl: "720h"
+
+pa_pki_key_type: "rsa"
+pa_pki_key_bits: 4096
+
+pa_pki_role: "internal"

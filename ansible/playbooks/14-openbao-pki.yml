@@ -1,0 +1,7 @@
+---
+- name: Déclarer l'autorité de certification interne
+  hosts: openbao_hosts
+  gather_facts: false
+
+  roles:
+    - openbao_pki

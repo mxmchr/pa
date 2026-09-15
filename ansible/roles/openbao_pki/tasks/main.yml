@@ -1,0 +1,205 @@
+---
+- name: Lister les moteurs montés
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/sys/mounts"
+    method: GET
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+  register: pa_pki_mounts
+  changed_when: false
+  no_log: true
+
+- name: Monter le moteur de l'autorité racine
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/sys/mounts/{{ pa_pki_root_mount }}"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      type: pki
+      config:
+        max_lease_ttl: "{{ pa_pki_root_ttl }}"
+    status_code: [200, 204]
+  when: (pa_pki_root_mount ~ '/') not in pa_pki_mounts.json
+  no_log: true
+
+- name: Monter le moteur de l'autorité intermédiaire
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/sys/mounts/{{ pa_pki_int_mount }}"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      type: pki
+      config:
+        max_lease_ttl: "{{ pa_pki_int_ttl }}"
+    status_code: [200, 204]
+  when: (pa_pki_int_mount ~ '/') not in pa_pki_mounts.json
+  no_log: true
+
+- name: Relever le certificat de l'autorité racine
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_root_mount }}/ca/pem"
+    method: GET
+    status_code: [200, 204]
+    return_content: true
+  register: pa_pki_root_ca
+  changed_when: false
+
+- name: Générer l'autorité racine
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_root_mount }}/root/generate/internal"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      common_name: "{{ pa_pki_org }} Root CA"
+      organization: "{{ pa_pki_org }}"
+      ttl: "{{ pa_pki_root_ttl }}"
+      key_type: "{{ pa_pki_key_type }}"
+      key_bits: "{{ pa_pki_key_bits }}"
+    status_code: [200]
+  when: pa_pki_root_ca.content | default('') | length < 100
+  no_log: true
+
+- name: Déclarer les points de distribution de la racine
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_root_mount }}/config/urls"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      issuing_certificates: ["{{ pa_pki_addr }}/v1/{{ pa_pki_root_mount }}/ca"]
+      crl_distribution_points: ["{{ pa_pki_addr }}/v1/{{ pa_pki_root_mount }}/crl"]
+    status_code: [200, 204]
+  changed_when: false
+  no_log: true
+
+- name: Relever le certificat de l'autorité intermédiaire
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/ca/pem"
+    method: GET
+    status_code: [200, 204]
+    return_content: true
+  register: pa_pki_int_ca
+  changed_when: false
+
+- name: Générer la demande de signature de l'intermédiaire
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/intermediate/generate/internal"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      common_name: "{{ pa_pki_org }} Intermediate CA"
+      organization: "{{ pa_pki_org }}"
+      key_type: "{{ pa_pki_key_type }}"
+      key_bits: "{{ pa_pki_key_bits }}"
+    status_code: [200]
+  register: pa_pki_csr
+  when: pa_pki_int_ca.content | default('') | length < 100
+  no_log: true
+
+- name: Faire signer l'intermédiaire par la racine
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_root_mount }}/root/sign-intermediate"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      csr: "{{ pa_pki_csr.json.data.csr }}"
+      format: pem_bundle
+      ttl: "{{ pa_pki_int_ttl }}"
+    status_code: [200]
+  register: pa_pki_signed
+  when: pa_pki_int_ca.content | default('') | length < 100
+  no_log: true
+
+- name: Installer le certificat signé de l'intermédiaire
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/intermediate/set-signed"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      certificate: "{{ pa_pki_signed.json.data.certificate }}"
+    status_code: [200, 204]
+  when: pa_pki_int_ca.content | default('') | length < 100
+  no_log: true
+
+- name: Déclarer les points de distribution de l'intermédiaire
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/config/urls"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      issuing_certificates: ["{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/ca"]
+      crl_distribution_points: ["{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/crl"]
+    status_code: [200, 204]
+  changed_when: false
+  no_log: true
+
+- name: Relever le rôle d'émission
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/roles/{{ pa_pki_role }}"
+    method: GET
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    status_code: [200, 404]
+  register: pa_pki_role_get
+  changed_when: false
+  no_log: true
+
+- name: Déclarer le rôle d'émission
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/roles/{{ pa_pki_role }}"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      allowed_domains: ["{{ pa_pki_domain }}"]
+      allow_subdomains: true
+      allow_bare_domains: true
+      allow_ip_sans: true
+      max_ttl: "{{ pa_pki_leaf_max_ttl }}"
+      ttl: "{{ pa_pki_leaf_ttl }}"
+      key_type: "{{ pa_pki_key_type }}"
+      key_bits: "{{ pa_pki_key_bits }}"
+    status_code: [200, 204]
+  when: pa_pki_role_get.status == 404
+  no_log: true
+
+- name: Vérifier que la chaîne est complète
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/ca/pem"
+    method: GET
+    return_content: true
+  register: pa_pki_check
+  changed_when: false
+  failed_when: "'BEGIN CERTIFICATE' not in pa_pki_check.content"
+
+- name: Vérifier l'émission d'un certificat de test
+  ansible.builtin.uri:
+    url: "{{ pa_pki_addr }}/v1/{{ pa_pki_int_mount }}/issue/{{ pa_pki_role }}"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_pki_token }}"
+    body_format: json
+    body:
+      common_name: "check.{{ pa_pki_domain }}"
+      ttl: "1h"
+    status_code: [200]
+  register: pa_pki_issue
+  changed_when: false
+  failed_when: "'BEGIN CERTIFICATE' not in (pa_pki_issue.json.data.certificate | default(''))"
+  no_log: true
