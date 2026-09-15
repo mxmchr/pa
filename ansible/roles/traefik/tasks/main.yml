@@ -28,9 +28,19 @@
   changed_when: false
   failed_when: false
 
+- name: Télécharger l'archive
+  ansible.builtin.get_url:
+    url: "{{ pa_traefik_url }}"
+    dest: "/tmp/traefik_{{ pa_traefik_version }}.tar.gz"
+    checksum: "{{ pa_traefik_checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: pa_traefik_version not in (pa_traefik_installed.stdout | default(''))
+
 - name: Installer le binaire
   ansible.builtin.unarchive:
-    src: "{{ pa_traefik_url }}"
+    src: "/tmp/traefik_{{ pa_traefik_version }}.tar.gz"
     dest: /usr/local/bin
     remote_src: true
     include:
@@ -38,7 +48,6 @@
     owner: root
     group: root
     mode: "0755"
-    checksum: "{{ pa_traefik_checksum }}"
   when: pa_traefik_version not in (pa_traefik_installed.stdout | default(''))
   notify: Redémarrer traefik
 
