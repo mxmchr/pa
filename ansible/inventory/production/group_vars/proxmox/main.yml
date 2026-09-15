@@ -41,6 +41,10 @@ pa_ceph_public_network: "{{ pa_networks.ceph_public.prefix }}.0/{{ pa_networks.c
 pa_ceph_cluster_prefix: "{{ pa_networks.ceph_cluster.prefix }}"
 pa_ceph_cluster_network: "{{ pa_networks.ceph_cluster.prefix }}.0/{{ pa_networks.ceph_cluster.prefix_len }}"
 
+pa_ceph_osd_disks:
+  - /dev/sdc
+  - /dev/sdd
+
 pa_sdn_peers:
   - "172.16.251.11"
   - "172.16.251.12"
