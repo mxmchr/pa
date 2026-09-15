@@ -45,6 +45,10 @@ pa_ceph_osd_disks:
   - /dev/sdc
   - /dev/sdd
 
+pa_ceph_pool_name: pa-pool
+pa_ceph_pool_size: 3
+pa_ceph_pool_min_size: 2
+
 pa_sdn_peers:
   - "172.16.251.11"
   - "172.16.251.12"
