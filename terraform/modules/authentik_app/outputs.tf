@@ -1,6 +1,6 @@
 output "client_id" {
-  description = "Identifiant client OAuth2."
-  value       = authentik_provider_oauth2.this.client_id
+  description = "Identifiant client OAuth2. Circule dans l'URL d'autorisation, ce n'est pas un secret."
+  value       = random_id.client_id.hex
 }
 
 output "client_secret" {

@@ -10,9 +10,8 @@ data "authentik_property_mapping_provider_scope" "scopes" {
   managed_list = var.scope_mappings
 }
 
-resource "random_password" "client_id" {
-  length  = 40
-  special = false
+resource "random_id" "client_id" {
+  byte_length = 24
 }
 
 resource "random_password" "client_secret" {
@@ -22,7 +21,7 @@ resource "random_password" "client_secret" {
 
 resource "authentik_provider_oauth2" "this" {
   name      = var.name
-  client_id = random_password.client_id.result
+  client_id = random_id.client_id.hex
 
   client_type   = var.client_type
   client_secret = var.client_type == "confidential" ? random_password.client_secret.result : null
