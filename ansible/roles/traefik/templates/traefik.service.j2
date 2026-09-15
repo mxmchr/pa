@@ -4,9 +4,10 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
+Type=simple
 ExecStart={{ pa_traefik_bin }} --configFile={{ pa_traefik_config_dir }}/traefik.yml
 Restart=on-failure
+RestartSec=5
 NoNewPrivileges=true
 ProtectSystem=strict
 ReadWritePaths={{ pa_traefik_cert_dir }}
