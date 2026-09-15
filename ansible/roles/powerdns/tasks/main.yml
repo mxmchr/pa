@@ -1,3 +1,4 @@
+---
 - name: Relever le résolveur courant
   ansible.builtin.slurp:
     src: /etc/resolv.conf
@@ -23,7 +24,7 @@
       - dnsutils
     state: present
     update_cache: true
-    cache_valid_time: 3600
+    cache_valid_time: 0
 
 - name: Vérifier la présence de la base
   ansible.builtin.stat:
@@ -157,14 +158,34 @@
   ansible.builtin.set_fact:
     pa_dns_current: >-
       {{ dict(_a | map(attribute='name') | list
-              | zip(_a | map(attribute='records') | map('first') | map(attribute='content') | list)) }}
+              | zip(_a | map(attribute='records') | map('map', attribute='content')
+                    | map('sort') | map('join', ',') | list)) }}
     pa_dns_wanted: >-
-      {{ dict(pa_dns_rrsets | map(attribute='name') | list
-              | zip(pa_dns_rrsets | map(attribute='records') | map('first') | map(attribute='content') | list)) }}
+      {{ dict(pa_dns_records | groupby('name') | map('first')
+              | map('regex_replace', '^(.*)$', '\1.' ~ pa_dns_zone ~ '.') | list
+              | zip(pa_dns_records | groupby('name') | map('last')
+                    | map('map', attribute='ip') | map('sort') | map('join', ',') | list)) }}
   vars:
     _a: >-
       {{ pa_dns_zone_get.json.rrsets | selectattr('type', 'equalto', 'A')
          | selectattr('records') | list }}
+
+- name: Ajouter la suppression des enregistrements non déclarés
+  ansible.builtin.set_fact:
+    pa_dns_rrsets: >-
+      {{ pa_dns_rrsets
+         + ((pa_dns_current.keys() | difference(pa_dns_wanted.keys()))
+            | map('regex_replace', '^(.+)$',
+              '{"name": "\1", "type": "A", "changetype": "DELETE"}')
+            | map('from_json') | list) }}
+
+- name: Afficher l'écart détecté
+  ansible.builtin.debug:
+    msg:
+      - "en trop  : {{ pa_dns_current.keys() | difference(pa_dns_wanted.keys()) | list }}"
+      - "manquant : {{ pa_dns_wanted.keys() | difference(pa_dns_current.keys()) | list }}"
+      - "conforme : {{ pa_dns_current == pa_dns_wanted }}"
+  run_once: true
 
 - name: Déclarer les enregistrements
   ansible.builtin.uri:
