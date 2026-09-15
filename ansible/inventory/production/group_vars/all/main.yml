@@ -1,3 +1,3 @@
 ---
 pa_workload_mtu: 1450
-pa_openbao_init_file: "{{ playbook_dir }}/../.openbao-init.json"
+pa_openbao_init_file: "{{ lookup('env', 'PA_OPENBAO_INIT') | default(playbook_dir ~ '/../../.openbao-init.json', true) }}"
