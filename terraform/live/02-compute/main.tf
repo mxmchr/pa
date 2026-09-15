@@ -49,6 +49,8 @@ module "lxc" {
   ipv4_address           = each.value.ipv4_address
   ipv4_gateway           = each.value.ipv4_gateway
 
+  keyctl = each.value.keyctl
+
   datastore_id     = coalesce(each.value.datastore_id, var.shared_datastore_id)
   disk_size        = each.value.disk_size
   template_file_id = each.value.template_file_id

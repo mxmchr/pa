@@ -305,6 +305,12 @@ variable "timeout_delete" {
   default     = 3600
 }
 
+variable "keyctl" {
+  description = "Autorise l'appel keyctl, requis par Docker dans un conteneur non privilégié."
+  type        = bool
+  default     = false
+}
+
 ############################################
 ### Valeurs dérivées                      ###
 ############################################

@@ -86,6 +86,11 @@ resource "proxmox_virtual_environment_container" "this" {
     ipv4 = local.wait_for_ipv4
   }
 
+  features {
+    nesting = var.nesting
+    keyctl  = var.keyctl
+  }
+
   timeout_create = var.timeout_create
   timeout_delete = var.timeout_delete
 }
