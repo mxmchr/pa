@@ -30,15 +30,17 @@ pa_dns_records:
   - {name: pdns2, ip: "10.0.20.6"}
   - {name: smtp, ip: "10.0.20.8"}
   - {name: openbao, ip: "10.0.20.10"}
-  - {name: authentik, ip: "10.0.20.15"}
   - {name: traefik, ip: "10.0.20.20"}
-  - {name: gitlab, ip: "10.0.20.30"}
+  - {name: authentik, ip: "10.0.20.20"}
+  - {name: gitlab, ip: "10.0.20.20"}
+  - {name: grafana, ip: "10.0.20.20"}
+  - {name: authentik-host, ip: "10.0.20.15"}
+  - {name: gitlab-host, ip: "10.0.20.30"}
   - {name: gitlab-runner, ip: "10.0.20.31"}
   - {name: netbird, ip: "10.0.30.5"}
   - {name: peer1, ip: "10.0.30.10"}
   - {name: peer2, ip: "10.0.30.11"}
   - {name: prometheus, ip: "10.0.40.10"}
-  - {name: grafana, ip: "10.0.40.11"}
   - {name: alertmanager, ip: "10.0.40.12"}
   - {name: bastion, ip: "10.0.40.20"}
   - {name: pbs, ip: "10.0.50.5"}
