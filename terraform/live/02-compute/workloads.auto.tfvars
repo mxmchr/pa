@@ -85,6 +85,54 @@ lxcs = {
 }
 
 vms = {
+    netbird = {
+    name        = "netbird"
+    vm_id       = 130
+    node_name   = "pve3"
+    tags        = ["vpn", "dmz"]
+    cores       = 2
+    memory_size = 2048
+    disk_size   = 20
+    network_devices = [
+      { bridge = "DMZ", mtu = 1450 },
+    ]
+    ipv4_address  = "10.0.30.5/24"
+    ipv4_gateway  = "10.0.30.1"
+    startup_order = 5
+  }
+
+  peer1 = {
+    name        = "peer1"
+    vm_id       = 131
+    node_name   = "pve1"
+    tags        = ["vpn", "dmz"]
+    cores       = 1
+    memory_size = 768
+    disk_size   = 8
+    network_devices = [
+      { bridge = "DMZ", mtu = 1450 },
+    ]
+    ipv4_address  = "10.0.30.10/24"
+    ipv4_gateway  = "10.0.30.1"
+    startup_order = 6
+  }
+
+  peer2 = {
+    name        = "peer2"
+    vm_id       = 132
+    node_name   = "pve2"
+    tags        = ["vpn", "dmz"]
+    cores       = 1
+    memory_size = 768
+    disk_size   = 8
+    network_devices = [
+      { bridge = "DMZ", mtu = 1450 },
+    ]
+    ipv4_address  = "10.0.30.11/24"
+    ipv4_gateway  = "10.0.30.1"
+    startup_order = 7
+  }
+  
   pbs = {
     name  = "pbs"
     vm_id = 150
