@@ -1,0 +1,12 @@
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: {{ pa_traefik_cert_dir }}/traefik.crt
+        keyFile: {{ pa_traefik_cert_dir }}/traefik.key
+  certificates:
+    - certFile: {{ pa_traefik_cert_dir }}/traefik.crt
+      keyFile: {{ pa_traefik_cert_dir }}/traefik.key
+  options:
+    default:
+      minVersion: VersionTLS12

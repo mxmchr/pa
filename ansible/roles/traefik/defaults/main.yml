@@ -1,0 +1,25 @@
+---
+pa_traefik_version: "3.7.13"
+pa_traefik_url: "https://github.com/traefik/traefik/releases/download/v{{ pa_traefik_version }}/traefik_v{{ pa_traefik_version }}_linux_amd64.tar.gz"
+pa_traefik_checksum: "sha256:52cd039a34258dd61c617a95d69252bc6bcae27c520f338186c31c7fef8f6394"
+
+pa_traefik_user: traefik
+pa_traefik_bin: /usr/local/bin/traefik
+pa_traefik_config_dir: /etc/traefik
+pa_traefik_dynamic_dir: /etc/traefik/dynamic
+pa_traefik_cert_dir: /etc/traefik/certs
+
+pa_traefik_http_port: 80
+pa_traefik_https_port: 443
+pa_traefik_ping_port: 8082
+
+pa_traefik_domain: "pa.lan"
+pa_traefik_hostname: "traefik.{{ pa_traefik_domain }}"
+pa_traefik_address: "10.0.20.20"
+
+pa_traefik_pki_addr: "http://10.0.20.10:8200"
+pa_traefik_pki_mount: "pki_int"
+pa_traefik_pki_role: "internal"
+pa_traefik_pki_token: "{{ (lookup('file', pa_openbao_init_file) | from_json).root_token }}"
+pa_traefik_cert_ttl: "720h"
+pa_traefik_renew_before_days: 15

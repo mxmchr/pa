@@ -1,0 +1,153 @@
+---
+- name: Créer le compte de service
+  ansible.builtin.user:
+    name: "{{ pa_traefik_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ pa_traefik_config_dir }}"
+    create_home: false
+
+- name: Créer les répertoires
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ pa_traefik_user }}"
+    group: "{{ pa_traefik_user }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: "{{ pa_traefik_config_dir }}", mode: "0755"}
+    - {path: "{{ pa_traefik_dynamic_dir }}", mode: "0755"}
+    - {path: "{{ pa_traefik_cert_dir }}", mode: "0750"}
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Relever la version installée
+  ansible.builtin.command:
+    cmd: "{{ pa_traefik_bin }} version"
+  register: pa_traefik_installed
+  changed_when: false
+  failed_when: false
+
+- name: Installer le binaire
+  ansible.builtin.unarchive:
+    src: "{{ pa_traefik_url }}"
+    dest: /usr/local/bin
+    remote_src: true
+    include:
+      - traefik
+    owner: root
+    group: root
+    mode: "0755"
+    checksum: "{{ pa_traefik_checksum }}"
+  when: pa_traefik_version not in (pa_traefik_installed.stdout | default(''))
+  notify: Redémarrer traefik
+
+- name: Relever le certificat en place
+  ansible.builtin.slurp:
+    src: "{{ pa_traefik_cert_dir }}/traefik.crt"
+  register: pa_traefik_cert_current
+  failed_when: false
+
+- name: Relever la date d'expiration
+  ansible.builtin.command:
+    cmd: "openssl x509 -checkend {{ pa_traefik_renew_before_days | int * 86400 }} -noout -in {{ pa_traefik_cert_dir }}/traefik.crt"
+  register: pa_traefik_cert_valid
+  changed_when: false
+  failed_when: false
+  when: pa_traefik_cert_current.content is defined
+
+- name: Émettre un certificat
+  ansible.builtin.uri:
+    url: "{{ pa_traefik_pki_addr }}/v1/{{ pa_traefik_pki_mount }}/issue/{{ pa_traefik_pki_role }}"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_traefik_pki_token }}"
+    body_format: json
+    body:
+      common_name: "{{ pa_traefik_hostname }}"
+      alt_names: "{{ pa_traefik_domain }},*.{{ pa_traefik_domain }}"
+      ip_sans: "{{ pa_traefik_address }}"
+      ttl: "{{ pa_traefik_cert_ttl }}"
+    status_code: [200]
+  register: pa_traefik_issued
+  when: pa_traefik_cert_current.content is not defined or pa_traefik_cert_valid.rc | default(1) != 0
+  no_log: true
+
+- name: Déposer le certificat
+  ansible.builtin.copy:
+    content: "{{ pa_traefik_issued.json.data.certificate }}\n{{ pa_traefik_issued.json.data.issuing_ca }}\n"
+    dest: "{{ pa_traefik_cert_dir }}/traefik.crt"
+    owner: "{{ pa_traefik_user }}"
+    group: "{{ pa_traefik_user }}"
+    mode: "0644"
+  when: pa_traefik_issued is not skipped
+  notify: Redémarrer traefik
+
+- name: Déposer la clé privée
+  ansible.builtin.copy:
+    content: "{{ pa_traefik_issued.json.data.private_key }}\n"
+    dest: "{{ pa_traefik_cert_dir }}/traefik.key"
+    owner: "{{ pa_traefik_user }}"
+    group: "{{ pa_traefik_user }}"
+    mode: "0600"
+  when: pa_traefik_issued is not skipped
+  no_log: true
+  notify: Redémarrer traefik
+
+- name: Configurer Traefik
+  ansible.builtin.template:
+    src: traefik.yml.j2
+    dest: "{{ pa_traefik_config_dir }}/traefik.yml"
+    owner: root
+    group: "{{ pa_traefik_user }}"
+    mode: "0640"
+  notify: Redémarrer traefik
+
+- name: Déclarer le magasin de certificats
+  ansible.builtin.template:
+    src: tls.yml.j2
+    dest: "{{ pa_traefik_dynamic_dir }}/tls.yml"
+    owner: root
+    group: "{{ pa_traefik_user }}"
+    mode: "0640"
+
+- name: Déclarer le service
+  ansible.builtin.template:
+    src: traefik.service.j2
+    dest: /etc/systemd/system/traefik.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Redémarrer traefik
+
+- name: Activer le service
+  ansible.builtin.systemd_service:
+    name: traefik
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Appliquer la configuration avant les contrôles
+  ansible.builtin.meta: flush_handlers
+
+- name: Vérifier que le service répond
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_traefik_ping_port }}/ping"
+    method: GET
+    status_code: [200]
+  register: pa_traefik_ping
+  retries: 10
+  delay: 2
+  until: pa_traefik_ping is succeeded
+  changed_when: false
+
+- name: Vérifier que le certificat est servi et signé par l'autorité interne
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail &&
+      echo | openssl s_client -connect 127.0.0.1:{{ pa_traefik_https_port }}
+      -servername {{ pa_traefik_hostname }} 2>/dev/null
+      | openssl x509 -noout -issuer
+  register: pa_traefik_tls
+  changed_when: false
+  failed_when: "'Intermediate CA' not in pa_traefik_tls.stdout"

@@ -1,0 +1,7 @@
+---
+- name: Déployer le point d'entrée applicatif
+  hosts: traefik_hosts
+  gather_facts: true
+
+  roles:
+    - traefik

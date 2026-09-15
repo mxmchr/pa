@@ -1,0 +1,29 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  web:
+    address: ":{{ pa_traefik_http_port }}"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":{{ pa_traefik_https_port }}"
+  ping:
+    address: ":{{ pa_traefik_ping_port }}"
+
+ping:
+  entryPoint: ping
+
+providers:
+  file:
+    directory: {{ pa_traefik_dynamic_dir }}
+    watch: true
+
+log:
+  level: INFO
+
+accessLog: {}
