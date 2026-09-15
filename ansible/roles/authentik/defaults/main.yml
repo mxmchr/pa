@@ -18,3 +18,7 @@ pa_authentik_pg_user: authentik
 
 pa_authentik_traefik_host: traefik
 pa_authentik_traefik_dynamic_dir: /etc/traefik/dynamic
+
+pa_authentik_admin_email: "admin@{{ pa_authentik_domain }}"
+pa_authentik_admin_password: "{{ lookup('password', pa_authentik_secrets_dir ~ '/authentik_admin_password chars=ascii_letters,digits length=32') }}"
+pa_authentik_api_token: "{{ lookup('password', pa_authentik_secrets_dir ~ '/authentik_api_token chars=ascii_letters,digits length=60') }}"
