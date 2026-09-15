@@ -1,0 +1,65 @@
+networks:
+  {{ pa_authentik_net_internal }}:
+    internal: true
+  {{ pa_authentik_net_external }}: {}
+
+services:
+  postgresql:
+    image: {{ pa_authentik_pg_image }}
+    restart: unless-stopped
+    networks:
+      - {{ pa_authentik_net_internal }}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${PG_PASS}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_DB: ${PG_DB}
+
+  server:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG}
+    restart: unless-stopped
+    command: server
+    env_file:
+      - .env
+    networks:
+      - {{ pa_authentik_net_internal }}
+      - {{ pa_authentik_net_external }}
+    volumes:
+      - media:/media
+      - templates:/templates
+    ports:
+      - "{{ pa_authentik_http_port }}:9000"
+      - "{{ pa_authentik_https_port }}:9443"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  worker:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG}
+    restart: unless-stopped
+    command: worker
+    env_file:
+      - .env
+    networks:
+      - {{ pa_authentik_net_internal }}
+      - {{ pa_authentik_net_external }}
+    volumes:
+      - media:/media
+      - templates:/templates
+      - certs:/certs
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+volumes:
+  database:
+  media:
+  templates:
+  certs:

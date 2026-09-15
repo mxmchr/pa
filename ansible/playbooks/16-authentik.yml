@@ -1,0 +1,7 @@
+---
+- name: Déployer le fournisseur d'identité
+  hosts: authentik_hosts
+  gather_facts: true
+
+  roles:
+    - authentik

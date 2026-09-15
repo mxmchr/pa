@@ -15,7 +15,6 @@ files/answer-files/*.TOML
 .vault_pass
 .vault-password
 
-
 # Variables sensibles éventuelles
 secrets.yml
 secret.yml
@@ -27,7 +26,22 @@ secret.yml
 # Logs
 ansible.log
 
-.env*
+# Variables d'environnement. Restreint aux fichiers réels : les exemples
+# versionnés (.env.terraform.example) doivent rester suivis.
+.env
+.env.terraform
+
+###############################################################################
+# Secrets générés par les rôles
+###############################################################################
+
+# Clés de descellement et jeton racine du coffre. Secret le plus sensible du
+# dépôt : sa perte rend le coffre inutilisable, sa fuite le compromet.
+.openbao-init.json
+
+# Secrets générés par lookup('password') : mot de passe de base et clé
+# applicative d'Authentik, et tout service ajouté ensuite.
+.secrets/
 
 ###############################################################################
 # Terraform
@@ -43,17 +57,15 @@ crash.log
 .terraform/
 **/.terraform/
 
-# .terraform.lock.hcl
-
-# Variables sensibles
-*.tfvars
+# Variables sensibles uniquement. Les définitions de workloads sont
+# versionnées : elles décrivent l'infrastructure, elles ne la secrètent pas.
+*secret*.tfvars
 *.tfvars.json
 
 # Backend
 backend.tfvars
 backend.hcl
 backend.auto.tfvars
-backend.auto.tfvars.json
 
 # Override
 override.tf

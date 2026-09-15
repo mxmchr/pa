@@ -1,0 +1,87 @@
+---
+- name: Créer le répertoire des secrets sur le nœud de contrôle
+  ansible.builtin.file:
+    path: "{{ pa_authentik_secrets_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  run_once: true
+
+- name: Générer ou relire les secrets
+  ansible.builtin.set_fact:
+    pa_authentik_pg_pass: "{{ lookup('password', pa_authentik_secrets_dir ~ '/authentik_pg_pass chars=ascii_letters,digits length=40') }}"
+    pa_authentik_secret_key: "{{ lookup('password', pa_authentik_secrets_dir ~ '/authentik_secret_key chars=ascii_letters,digits length=60') }}"
+  no_log: true
+
+- name: Créer le répertoire du service
+  ansible.builtin.file:
+    path: "{{ pa_authentik_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Déposer les variables d'environnement
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ pa_authentik_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  register: pa_authentik_env
+
+- name: Déposer la définition de la pile
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ pa_authentik_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  register: pa_authentik_compose
+
+- name: Démarrer la pile
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ pa_authentik_dir }}"
+  register: pa_authentik_up
+  changed_when: "'Started' in pa_authentik_up.stderr or 'Created' in pa_authentik_up.stderr or 'Recreated' in pa_authentik_up.stderr"
+
+- name: Attendre que l'application réponde
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ pa_authentik_http_port }}/-/health/ready/"
+    method: GET
+    status_code: [200, 204]
+  register: pa_authentik_ready
+  retries: 60
+  delay: 5
+  until: pa_authentik_ready is succeeded
+  changed_when: false
+
+- name: Publier l'application derrière le point d'entrée
+  ansible.builtin.template:
+    src: traefik-route.yml.j2
+    dest: "{{ pa_authentik_traefik_dynamic_dir }}/authentik.yml"
+    owner: root
+    group: traefik
+    mode: "0640"
+  delegate_to: "{{ pa_authentik_traefik_host }}"
+
+- name: Vérifier la publication
+  ansible.builtin.uri:
+    url: "https://{{ pa_authentik_hostname }}/-/health/ready/"
+    method: GET
+    validate_certs: false
+    status_code: [200, 204]
+  register: pa_authentik_published
+  retries: 10
+  delay: 3
+  until: pa_authentik_published is succeeded
+  changed_when: false
+  delegate_to: "{{ pa_authentik_traefik_host }}"
+
+- name: Rappeler l'initialisation du premier compte
+  ansible.builtin.debug:
+    msg: >-
+      Créer le compte administrateur sur
+      https://{{ pa_authentik_hostname }}/if/flow/initial-setup/

@@ -1,0 +1,20 @@
+---
+pa_authentik_version: "2026.8.2"
+pa_authentik_pg_image: "docker.io/library/postgres:17-alpine"
+
+pa_authentik_dir: /opt/authentik
+pa_authentik_domain: "pa.lan"
+pa_authentik_hostname: "authentik.{{ pa_authentik_domain }}"
+pa_authentik_address: "10.0.20.15"
+pa_authentik_http_port: 9000
+pa_authentik_https_port: 9443
+
+pa_authentik_net_internal: authentik_internal
+pa_authentik_net_external: authentik_external
+
+pa_authentik_secrets_dir: "{{ playbook_dir }}/../../.secrets"
+pa_authentik_pg_db: authentik
+pa_authentik_pg_user: authentik
+
+pa_authentik_traefik_host: traefik
+pa_authentik_traefik_dynamic_dir: /etc/traefik/dynamic

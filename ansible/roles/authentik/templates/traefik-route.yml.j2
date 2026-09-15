@@ -1,0 +1,14 @@
+http:
+  routers:
+    authentik:
+      rule: "Host(`{{ pa_authentik_hostname }}`)"
+      entryPoints:
+        - websecure
+      service: authentik
+      tls: {}
+  services:
+    authentik:
+      loadBalancer:
+        servers:
+          - url: "http://{{ pa_authentik_address }}:{{ pa_authentik_http_port }}"
+        passHostHeader: true
