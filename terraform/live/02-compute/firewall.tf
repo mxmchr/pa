@@ -48,12 +48,13 @@ variable "firewall_workload_groups" {
 }
 
 resource "proxmox_virtual_environment_cluster_firewall" "this" {
-  enabled   = var.firewall_enabled
-  policy_in = "DROP"
+  enabled = var.firewall_enabled
+
+  input_policy = "DROP"
 
   # Le trafic sortant reste libre : la V1 ne filtre pas les flux initiés par
   # les workloads, ce point est porté par le pare-feu inter-zone.
-  policy_out = "ACCEPT"
+  output_policy = "ACCEPT"
 
   log_ratelimit {
     enabled = true
