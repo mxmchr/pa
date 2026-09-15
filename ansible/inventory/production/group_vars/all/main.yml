@@ -1,3 +1,5 @@
 ---
 pa_workload_mtu: 1450
+pve_primary_node: pve1.pa.lan
+pve_primary_ip: 172.16.255.11
 pa_openbao_init_file: "{{ lookup('env', 'PA_OPENBAO_INIT') | default(playbook_dir ~ '/../../.openbao-init.json', true) }}"
