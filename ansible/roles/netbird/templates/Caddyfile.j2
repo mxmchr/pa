@@ -1,0 +1,16 @@
+{
+	admin off
+}
+
+{{ pa_netbird_hostname }}:443 {
+	tls /certs/netbird.crt /certs/netbird.key
+
+	reverse_proxy /signalexchange.SignalExchange/* h2c://signal:{{ pa_netbird_signal_port }}
+	reverse_proxy /api/* management:80
+	reverse_proxy /management.ManagementService/* h2c://management:80
+	reverse_proxy /* dashboard:80
+}
+
+:80 {
+	redir https://{{ pa_netbird_hostname }}{uri} permanent
+}

@@ -1,0 +1,7 @@
+---
+- name: Déployer l'accès distant Zero Trust
+  hosts: netbird_hosts
+  gather_facts: true
+
+  roles:
+    - netbird

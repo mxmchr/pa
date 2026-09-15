@@ -1,0 +1,67 @@
+{
+  "Stuns": [
+    {
+      "Proto": "udp",
+      "URI": "stun:{{ pa_netbird_hostname }}:{{ pa_netbird_turn_port }}",
+      "Username": "",
+      "Password": ""
+    }
+  ],
+  "TURNConfig": {
+    "TimeBasedCredentials": false,
+    "CredentialsTTL": "12h",
+    "Secret": "{{ pa_netbird_turn_secret }}",
+    "Turns": [
+      {
+        "Proto": "udp",
+        "URI": "turn:{{ pa_netbird_hostname }}:{{ pa_netbird_turn_port }}",
+        "Username": "netbird",
+        "Password": "{{ pa_netbird_turn_password }}"
+      }
+    ]
+  },
+  "Relay": {
+    "Addresses": ["rel://{{ pa_netbird_hostname }}:{{ pa_netbird_relay_port }}"],
+    "CredentialsTTL": "24h",
+    "Secret": "{{ pa_netbird_relay_secret }}"
+  },
+  "Signal": {
+    "Proto": "https",
+    "URI": "{{ pa_netbird_hostname }}:443",
+    "Username": "",
+    "Password": ""
+  },
+  "Datadir": "/var/lib/netbird/",
+  "HttpConfig": {
+    "Address": "0.0.0.0:80",
+    "IdpSignKeyRefreshEnabled": true,
+    "AuthIssuer": "{{ pa_netbird_auth_issuer }}",
+    "AuthAudience": "{{ pa_netbird_auth_audience }}",
+    "AuthKeysLocation": "{{ pa_netbird_auth_issuer }}jwks/",
+    "OIDCConfigEndpoint": "{{ pa_netbird_auth_issuer }}.well-known/openid-configuration"
+  },
+  "IdpManagerConfig": {
+    "ManagerType": "none"
+  },
+  "DeviceAuthorizationFlow": {
+    "Provider": "hosted",
+    "ProviderConfig": {
+      "Audience": "{{ pa_netbird_auth_audience }}",
+      "ClientID": "{{ pa_netbird_auth_client_id }}",
+      "Scope": "{{ pa_netbird_auth_scopes }}",
+      "TokenEndpoint": "{{ pa_netbird_auth_issuer }}token/",
+      "DeviceAuthEndpoint": "{{ pa_netbird_auth_issuer }}device/"
+    }
+  },
+  "PKCEAuthorizationFlow": {
+    "ProviderConfig": {
+      "Audience": "{{ pa_netbird_auth_audience }}",
+      "ClientID": "{{ pa_netbird_auth_client_id }}",
+      "Scope": "{{ pa_netbird_auth_scopes }}",
+      "AuthorizationEndpoint": "{{ pa_netbird_auth_issuer }}authorize/",
+      "TokenEndpoint": "{{ pa_netbird_auth_issuer }}token/",
+      "RedirectURLs": ["http://localhost:53000/"],
+      "UseIDToken": false
+    }
+  }
+}

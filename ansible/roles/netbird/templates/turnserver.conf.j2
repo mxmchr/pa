@@ -1,0 +1,13 @@
+listening-port={{ pa_netbird_turn_port }}
+tls-listening-port=5349
+min-port={{ pa_netbird_turn_range_start }}
+max-port={{ pa_netbird_turn_range_end }}
+fingerprint
+lt-cred-mech
+user=netbird:{{ pa_netbird_turn_password }}
+realm={{ pa_netbird_hostname }}
+cli-password={{ pa_netbird_turn_secret }}
+no-software-attribute
+pidfile="/var/tmp/turnserver.pid"
+log-file=stdout
+no-cli

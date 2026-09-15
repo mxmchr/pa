@@ -1,0 +1,34 @@
+---
+pa_netbird_version: "0.78.2"
+pa_netbird_dashboard_version: "v2.92.0"
+pa_netbird_coturn_image: "docker.io/coturn/coturn:4.6.2"
+pa_netbird_caddy_image: "docker.io/library/caddy:2.9-alpine"
+
+pa_netbird_dir: /opt/netbird
+pa_netbird_domain: "pa.lan"
+pa_netbird_hostname: "netbird.{{ pa_netbird_domain }}"
+pa_netbird_address: "10.0.30.5"
+
+pa_netbird_signal_port: 10000
+pa_netbird_management_port: 33073
+pa_netbird_relay_port: 33080
+pa_netbird_turn_port: 3478
+pa_netbird_turn_range_start: 49152
+pa_netbird_turn_range_end: 49200
+
+pa_netbird_net_internal: netbird_internal
+pa_netbird_net_external: netbird_external
+
+pa_netbird_secrets_dir: "{{ playbook_dir }}/../../.secrets"
+
+pa_netbird_auth_issuer: "https://authentik.{{ pa_netbird_domain }}/application/o/netbird/"
+pa_netbird_auth_client_id: "d88be3aa0117a94f4be9e148b13b3a1c725e1cccd828de05"
+pa_netbird_auth_audience: "https://authentik.pa.lan/application/o/netbird/"
+pa_netbird_auth_scopes: "openid profile email offline_access"
+
+pa_netbird_pki_addr: "http://10.0.20.10:8200"
+pa_netbird_pki_mount: "pki_int"
+pa_netbird_pki_role: "internal"
+pa_netbird_pki_token: "{{ (lookup('file', pa_openbao_init_file) | from_json).root_token }}"
+pa_netbird_cert_ttl: "720h"
+pa_netbird_renew_before_days: 15

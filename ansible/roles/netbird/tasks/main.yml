@@ -1,0 +1,173 @@
+---
+- name: Créer le répertoire des secrets sur le nœud de contrôle
+  ansible.builtin.file:
+    path: "{{ pa_netbird_secrets_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  run_once: true
+
+- name: Générer ou relire les secrets
+  ansible.builtin.set_fact:
+    pa_netbird_turn_password: "{{ lookup('password', pa_netbird_secrets_dir ~ '/netbird_turn_password chars=ascii_letters,digits length=32') }}"
+    pa_netbird_turn_secret: "{{ lookup('password', pa_netbird_secrets_dir ~ '/netbird_turn_secret chars=ascii_letters,digits length=32') }}"
+    pa_netbird_relay_secret: "{{ lookup('password', pa_netbird_secrets_dir ~ '/netbird_relay_secret chars=ascii_letters,digits length=48') }}"
+  no_log: true
+
+- name: Vérifier que le client OAuth2 est renseigné
+  ansible.builtin.assert:
+    that:
+      - pa_netbird_auth_client_id is match('^[0-9a-f]{32,}$')
+      - pa_netbird_auth_audience == pa_netbird_auth_client_id
+    fail_msg: >-
+      Renseigner pa_netbird_auth_client_id et pa_netbird_auth_audience depuis
+      la sortie de terraform/live/04-identity.
+    quiet: true
+
+- name: Créer les répertoires
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ pa_netbird_dir }}"
+    - "{{ pa_netbird_dir }}/certs"
+
+- name: Relever le certificat en place
+  ansible.builtin.stat:
+    path: "{{ pa_netbird_dir }}/certs/netbird.crt"
+  register: pa_netbird_cert_current
+
+- name: Relever la date d'expiration
+  ansible.builtin.command:
+    cmd: "openssl x509 -checkend {{ pa_netbird_renew_before_days | int * 86400 }} -noout -in {{ pa_netbird_dir }}/certs/netbird.crt"
+  register: pa_netbird_cert_valid
+  changed_when: false
+  failed_when: false
+  when: pa_netbird_cert_current.stat.exists
+
+- name: Émettre un certificat
+  ansible.builtin.uri:
+    url: "{{ pa_netbird_pki_addr }}/v1/{{ pa_netbird_pki_mount }}/issue/{{ pa_netbird_pki_role }}"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ pa_netbird_pki_token }}"
+    body_format: json
+    body:
+      common_name: "{{ pa_netbird_hostname }}"
+      ip_sans: "{{ pa_netbird_address }}"
+      ttl: "{{ pa_netbird_cert_ttl }}"
+    status_code: [200]
+  register: pa_netbird_issued
+  when: not pa_netbird_cert_current.stat.exists or pa_netbird_cert_valid.rc | default(1) != 0
+  no_log: true
+
+- name: Déposer le certificat
+  ansible.builtin.copy:
+    content: "{{ pa_netbird_issued.json.data.certificate }}\n{{ pa_netbird_issued.json.data.issuing_ca }}\n"
+    dest: "{{ pa_netbird_dir }}/certs/netbird.crt"
+    owner: root
+    group: root
+    mode: "0644"
+  when: pa_netbird_issued is not skipped
+  register: pa_netbird_cert_written
+
+- name: Déposer la clé privée
+  ansible.builtin.copy:
+    content: "{{ pa_netbird_issued.json.data.private_key }}\n"
+    dest: "{{ pa_netbird_dir }}/certs/netbird.key"
+    owner: root
+    group: root
+    mode: "0640"
+  when: pa_netbird_issued is not skipped
+  no_log: true
+
+- name: Configurer le plan de contrôle
+  ansible.builtin.template:
+    src: management.json.j2
+    dest: "{{ pa_netbird_dir }}/management.json"
+    owner: root
+    group: root
+    mode: "0640"
+  no_log: true
+  register: pa_netbird_mgmt
+
+- name: Configurer le serveur de relais de médias
+  ansible.builtin.template:
+    src: turnserver.conf.j2
+    dest: "{{ pa_netbird_dir }}/turnserver.conf"
+    owner: root
+    group: root
+    mode: "0640"
+  no_log: true
+  register: pa_netbird_turn
+
+- name: Configurer le point d'entrée
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ pa_netbird_dir }}/Caddyfile"
+    owner: root
+    group: root
+    mode: "0644"
+  register: pa_netbird_caddy
+
+- name: Déposer la définition de la pile
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ pa_netbird_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  register: pa_netbird_compose
+
+- name: Démarrer la pile
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --project-directory
+      - "{{ pa_netbird_dir }}"
+      - up
+      - -d
+      - --remove-orphans
+  register: pa_netbird_up
+  changed_when: "'Started' in pa_netbird_up.stderr or 'Created' in pa_netbird_up.stderr or 'Recreated' in pa_netbird_up.stderr"
+
+- name: Redémarrer la pile après changement de configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --project-directory
+      - "{{ pa_netbird_dir }}"
+      - restart
+  when: >-
+    pa_netbird_mgmt is changed or pa_netbird_turn is changed
+    or pa_netbird_caddy is changed or pa_netbird_cert_written is changed
+  changed_when: true
+
+- name: Vérifier que le tableau de bord répond
+  ansible.builtin.uri:
+    url: "https://{{ pa_netbird_hostname }}/"
+    method: GET
+    validate_certs: false
+    status_code: [200]
+  register: pa_netbird_dash
+  retries: 30
+  delay: 5
+  until: pa_netbird_dash is succeeded
+  changed_when: false
+
+- name: Vérifier que l'API du plan de contrôle répond
+  ansible.builtin.uri:
+    url: "https://{{ pa_netbird_hostname }}/api/users"
+    method: GET
+    validate_certs: false
+    status_code: [401]
+  register: pa_netbird_api
+  retries: 10
+  delay: 3
+  until: pa_netbird_api is succeeded
+  changed_when: false

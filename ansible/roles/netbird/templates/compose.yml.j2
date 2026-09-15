@@ -1,0 +1,95 @@
+networks:
+  {{ pa_netbird_net_internal }}:
+    internal: true
+  {{ pa_netbird_net_external }}: {}
+
+services:
+  caddy:
+    image: {{ pa_netbird_caddy_image }}
+    restart: unless-stopped
+    networks:
+      - {{ pa_netbird_net_internal }}
+      - {{ pa_netbird_net_external }}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+    depends_on:
+      - dashboard
+      - management
+      - signal
+
+  dashboard:
+    image: netbirdio/dashboard:{{ pa_netbird_dashboard_version }}
+    restart: unless-stopped
+    networks:
+      - {{ pa_netbird_net_internal }}
+    environment:
+      NETBIRD_MGMT_API_ENDPOINT: "https://{{ pa_netbird_hostname }}"
+      NETBIRD_MGMT_GRPC_API_ENDPOINT: "https://{{ pa_netbird_hostname }}"
+      AUTH_AUDIENCE: "{{ pa_netbird_auth_audience }}"
+      AUTH_CLIENT_ID: "{{ pa_netbird_auth_client_id }}"
+      AUTH_AUTHORITY: "{{ pa_netbird_auth_issuer }}"
+      USE_AUTH0: "false"
+      AUTH_SUPPORTED_SCOPES: "{{ pa_netbird_auth_scopes }}"
+      AUTH_REDIRECT_URI: "/peers"
+      AUTH_SILENT_REDIRECT_URI: "/silent-auth"
+      NETBIRD_TOKEN_SOURCE: "idToken"
+
+  signal:
+    image: netbirdio/signal:{{ pa_netbird_version }}
+    restart: unless-stopped
+    networks:
+      - {{ pa_netbird_net_internal }}
+    volumes:
+      - signal:/var/lib/netbird
+
+  relay:
+    image: netbirdio/relay:{{ pa_netbird_version }}
+    restart: unless-stopped
+    networks:
+      - {{ pa_netbird_net_internal }}
+      - {{ pa_netbird_net_external }}
+    ports:
+      - "{{ pa_netbird_relay_port }}:{{ pa_netbird_relay_port }}"
+    environment:
+      NB_LOG_LEVEL: info
+      NB_LISTEN_ADDRESS: ":{{ pa_netbird_relay_port }}"
+      NB_EXPOSED_ADDRESS: "rel://{{ pa_netbird_hostname }}:{{ pa_netbird_relay_port }}"
+      NB_AUTH_SECRET: "{{ pa_netbird_relay_secret }}"
+
+  management:
+    image: netbirdio/management:{{ pa_netbird_version }}
+    restart: unless-stopped
+    networks:
+      - {{ pa_netbird_net_internal }}
+      - {{ pa_netbird_net_external }}
+    volumes:
+      - management:/var/lib/netbird
+      - ./management.json:/etc/netbird/management.json:ro
+      - ./certs:/certs:ro
+    command:
+      - --port=80
+      - --log-file=console
+      - --log-level=info
+      - --disable-anonymous-metrics=true
+      - --single-account-mode-domain={{ pa_netbird_hostname }}
+      - --dns-domain={{ pa_netbird_domain }}
+
+  coturn:
+    image: {{ pa_netbird_coturn_image }}
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./turnserver.conf:/etc/turnserver.conf:ro
+    command:
+      - -c
+      - /etc/turnserver.conf
+
+volumes:
+  caddy_data:
+  signal:
+  management:
