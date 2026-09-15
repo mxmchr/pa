@@ -1,0 +1,3 @@
+---
+pa_netbird_auth_client_id: "d88be3aa0117a94f4be9e148b13b3a1c725e1cccd828de05"
+pa_netbird_auth_audience: "{{ pa_netbird_auth_client_id }}"
