@@ -87,6 +87,14 @@
   run_once: true
   delegate_to: "{{ pve_primary_node }}"
 
+- name: Récupérer l'état de santé du cluster Ceph
+  ansible.builtin.command: ceph -s --format json
+  register: ceph_status
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ pve_primary_node }}"
+  failed_when: ceph_status.rc != 0 or ceph_status.stdout | trim | length == 0
+
 - name: Afficher l'état de santé Ceph
   ansible.builtin.debug:
     msg: "Ceph health: {{ (ceph_status.stdout | from_json).health.status }}"
